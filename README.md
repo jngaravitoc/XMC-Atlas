@@ -20,3 +20,9 @@ To contribute, please make a pull request (PR) including the following informati
 - Fill out the model parameters information 
 - Add potential expansion in the coefficients folder 
 - Add code with an example of how to read the coefficients
+
+
+### Authors:
+-------------
+
+Nico Garavito-Camargo, Sophia Lilleengen, Mike Petersen
