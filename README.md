@@ -8,7 +8,7 @@ Library of available MW-LMC potential models
 --------| ----------|------------------| --------------------|
 | GC21 |  [Garavito-Camargo et. al., 2021](https://ui.adsabs.harvard.edu/abs/2021ApJ...919..109G/abstract)  | Hernquist | Gala & EXP |
 | L21  |  [Lilleengen et. al., 2023](https://ui.adsabs.harvard.edu/abs/2023MNRAS.518..774L/abstract)   | Empirical | EXP |
-| V21  |  [Vasiliev et. al., 2021](https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.2279V/abstract)  | Spline and Hernquist    | AGAMA |  
+| V23  |  [Vasiliev et. al., 2021](https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.2279V/abstract)  | Spline and Hernquist | AGAMA |  
 
 
 
@@ -17,12 +17,20 @@ Library of available MW-LMC potential models
 ----------------------- 
 To contribute, please make a pull request (PR) including the following information:
 
-- Fill out the model parameters information 
-- Add potential expansion in the coefficients folder 
-- Add code with an example of how to read the coefficients
+- Fill out the model parameters with the following information:
+  [] Orbit files of the LMC and the MW
+  [] Halo properties of the LMC and the MW represented as a Gala potential representation
+  [] Reference of the paper where the models are presented
+- Add the new model in the model folder with the following subdirectories:
+  - coefficients/
+  - model_params/
+  - orbits/
+- Add code with an example of how to read the coefficients in the examples folder
 
 
 ### Authors:
 -------------
 
-Nico Garavito-Camargo, Sophia Lilleengen, Mike Petersen
+- Nico Garavito-Camargo
+- Sophia Lilleengen
+- Mike Petersen
