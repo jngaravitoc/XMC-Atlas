@@ -25,7 +25,7 @@ To contribute, please make a pull request (PR) including the following informati
   - coefficients/
   - model_params/
   - orbits/
-- Add code with an example of how to read the coefficients in the examples folder
+- Add code with an example of how to read the coefficients and plot density fields in the examples folder
 
 
 ### Authors:
