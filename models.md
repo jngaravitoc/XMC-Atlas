@@ -1,10 +1,23 @@
-### Library model properties 
-
-| Model  | MW DM halo | Halo parameters | MW disk | Disk parameters | MW bulde | Bulge parameters |LMC DM halo | LMC parameters |LMC disk | LMC disk parameters | Present day LMC coordinates | 
-| ---------| -------| ------ | ------ | ------ | -----| ------ | ------ | ----- | ----- | ----- | ----- | 
-| GC21-M1b0  | Hernquist |   <ul><li>MHern = 1.57 × 10^12 Msun</li><li> a = 40.8 kpc</li> <li> beta=0</li></ul> | Miyamoto-Nagai |  Mdisk = 5.78 × 1010M,  ra = 3.5 kpc, rb=0.5kpc   | Hernquist | a bulge = 0.7 kpc |Hernquist | Total mass 8 × 10^{10}M | - | -| |
-| GC21-M2b0  | Hernquist |  <ul><li>MHern = 1.57 × 10^12 Msun</li><li> a = 40.8 kpc</li> <li> beta=0</li></ul> | Miyamoto-Nagai | Mdisk = 5.78 × 1010M,  ra = 3.5 kpc, rb=0.5kpc   | Hernquist | a bulge = 0.7 kpc |Hernquist | Total mass 10 × 10^{10}M | - | -| |
-| GC21-M3b0  | Hernquist |   <ul><li>MHern = 1.57 × 10^12 Msun</li><li> a = 40.8 kpc</li> <li> beta=0</li></ul> | Miyamoto-Nagai |  Mdisk = 5.78 × 1010M,  ra = 3.5 kpc, rb=0.5kpc   | Hernquist | a bulge = 0.7 kpc |Hernquist | Total mass 18 × 10^{10}M | - | -| |
-| GC21-M4b0  | Hernquist |  <ul><li>MHern = 1.57 × 10^12 Msun</li><li> a = 40.8 kpc</li> <li> beta=0</li></ul> | Miyamoto-Nagai |  Mdisk = 5.78 × 1010M,  ra = 3.5 kpc, rb=0.5kpc   | Hernquist | a bulge = 0.7 kpc |Hernquist | Total mass 25 × 10^{10}M | - | -| |
-| L23 | NFW | <ul><li>Mvir = 7.92×10^11 Msun</li><li> rs = 12.8 kpc</li> <li> c=15.3</li> <li> beta=0</li></ul>  | Miyamoto-Nagai | Md = 6.8 × 1010M, ra = 3 kpc, rb=0.28  | Hernquist | Mb = 5 × 109M, ra=0.5 | - | - | |
-| V23-M10L2 |  <ul><li>Mvir = 1×10^12 Msun</li><li> rs = 15 kpc</li> <li>  c =17.3</li> <li> beta=0</li></ul>  | Single Exponential | Md = 5x10^10 Msun, ra = 3 kpc, rb=0.28  | Hernquist | Mb = 5 × 109M, ra=0.5 | - | - | |
+| Model  | Gravity Solver |  N-body code |  Halo mass resolution | Reference |
+| ------- | -------- | --------- | ------- | ------- |
+| C25 | Fourier Decomposition | Enzo| 2e5 | (Carr et. al., )[https://ui.adsabs.harvard.edu/abs/2025ApJ...983..151C] |
+| GC21M1b0 | Fast Multipole Method| GADGET-4 | 1.5e4 | (Garavito-Camargo et. al., 2021a)[https://ui.adsabs.harvard.edu/abs/2021ApJ...919..109G] |
+| GC21M1b0 | Fast Multipole Method| GADGET-4 | 1.5e4 | (Garavito-Camargo et. al., 2021a)[https://ui.adsabs.harvard.edu/abs/2021ApJ...919..109G] |
+| GC21M1b0 | Fast Multipole Method| GADGET-4 | 1.5e4 | (Garavito-Camargo et. al., 2021a)[https://ui.adsabs.harvard.edu/abs/2021ApJ...919..109G] |
+| GC21M1b0 | Fast Multipole Method| GADGET-4 | 1.5e4 | (Garavito-Camargo et. al., 2021a)[https://ui.adsabs.harvard.edu/abs/2021ApJ...919..109G] |
+| GC21M1b0 | Fast Multipole Method| GADGET-4 | 1.5e4 | (Garavito-Camargo et. al., 2021a)[https://ui.adsabs.harvard.edu/abs/2021ApJ...919..109G] |
+| GC21M1b0 | Fast Multipole Method| GADGET-4 | 1.5e4 | (Garavito-Camargo et. al., 2021a)[https://ui.adsabs.harvard.edu/abs/2021ApJ...919..109G] |
+| GC21M1b0 | Fast Multipole Method| GADGET-4 | 1.5e4 | (Garavito-Camargo et. al., 2021a)[https://ui.adsabs.harvard.edu/abs/2021ApJ...919..109G] |
+| GC21M1b0 | Fast Multipole Method| GADGET-4 | 1.5e4 | (Garavito-Camargo et. al., 2021a)[https://ui.adsabs.harvard.edu/abs/2021ApJ...919..109G] |
+| L18M1 | Tree | GADGET-3 | 5e4 | (Laporte et. al., 2018)[https://ui.adsabs.harvard.edu/abs/2018MNRAS.473.1218L] |
+| L18M2 | Tree | GADGET-3 | 5e4 | (Laporte et. al., 2018)[https://ui.adsabs.harvard.edu/abs/2018MNRAS.473.1218L] |
+| L18M3 | Tree | GADGET-3 | 5e4 | (Laporte et. al., 2018)[https://ui.adsabs.harvard.edu/abs/2018MNRAS.473.1218L] |
+| L18M4 | Tree | GADGET-3 | 5e4 | (Laporte et. al., 2018)[https://ui.adsabs.harvard.edu/abs/2018MNRAS.473.1218L] |
+| L18M5 | Tree | GADGET-3 | 5e4 | (Laporte et. al., 2018)[https://ui.adsabs.harvard.edu/abs/2018MNRAS.473.1218L] |
+| L18M6 | Tree | GADGET-3 | 5e4 | (Laporte et. al., 2018)[https://ui.adsabs.harvard.edu/abs/2018MNRAS.473.1218L] |
+| S25 | Tree | Bonsai | 1.2e4 | (Stelea et. al., 2025)[https://ui.adsabs.harvard.edu/abs/2024ApJ...977..252S] |
+| L23 | BFE  | EXP | 7.9e4 | (Lilleengen)[https://ui.adsabs.harvard.edu/abs/2023MNRAS.518..774L]|
+| V23L2M10 | Fast Multipole Method | GYRFALCON | 1.4e5 | (Vasilev 2024)[https://ui.adsabs.harvard.edu/abs/2024MNRAS.527..437V] |
+| V23L2M11 | Fast Multipole Method | GYRFLACON | 1.5e5 | (Vasilev 2024)[https://ui.adsabs.harvard.edu/abs/2024MNRAS.527..437V] |
+| V23L3M10 | Fast Multipole Method | GYRFALCON | 1.4e5 | (Vasilev 2024)[https://ui.adsabs.harvard.edu/abs/2024MNRAS.527..437V] |
+| V23L3M11 | Fast Multipole Method | GYRFALCON | 1.5e5 | (Vasilev 2024)[https://ui.adsabs.harvard.edu/abs/2024MNRAS.527..437V] |
