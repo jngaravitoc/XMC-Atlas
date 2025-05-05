@@ -1,16 +1,6 @@
 # XMC Atlas
 
-Library of available MW-LMC potential models
-
-### Available models:
-
-| Model | Reference |  Expansion class | Coefficients format | 
---------| ----------|------------------| --------------------|
-| GC21 |  [Garavito-Camargo et. al., 2021](https://ui.adsabs.harvard.edu/abs/2021ApJ...919..109G/abstract)  | Hernquist | Gala & EXP |
-| L21  |  [Lilleengen et. al., 2023](https://ui.adsabs.harvard.edu/abs/2023MNRAS.518..774L/abstract)   | Empirical | EXP |
-| V23  |  [Vasiliev et. al., 2021](https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.2279V/abstract)  | Spline and Hernquist | AGAMA |  
-
-
+Library of available MW-LMC potential [models](https://github.com/jngaravitoc/XMC-Atlas/blob/main/models.md)
 
 
 ### How to contribute:
