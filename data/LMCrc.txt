@@ -1,0 +1,6 @@
+# Radius, Enclosed Mass,  Error high, Error low,  vc, vc_err_high, vc_err_low, Reference
+13.2, 2.66e10, 0.42, -0.36, 92.9, 6.2, -5.7, Watkins+24
+8.7, 1.7e10, 1.05, 1.05, 91.7, 18.8, -18.8, van der Marel+14
+4, , , , 85, 5, -5, Gaia Collaboration+21
+
+
