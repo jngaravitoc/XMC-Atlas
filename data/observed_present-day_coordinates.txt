@@ -1,0 +1,6 @@
+# Cartesian Galactocentric coordinates of the LMC
+# x [kpc], xerr, y [kpc], yerr,  z [kpc], zerr,  vx [km/s], vxerr,  vy [km/s],
+vyerr, vz [km/s], vzerr
+Gaia Collaboration 2018,-1.078, 0.3, -41.0, 0.2, -27.82, 1.4, -60.2, +10.2-9.7, -216.6, 13.8-13.5,
+209.4, 18.0-18.8,
+Kallivayalil et. al, 2013, -0.97, ,-41.0, , -27.8, , -57, 13, -226, 15, 221, 19,
