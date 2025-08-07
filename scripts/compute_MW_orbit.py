@@ -1,70 +1,56 @@
-"""
-Script to compute the COM of the MW's halo
-
-"""
+# process_com_snapshot.py
+import sys
 import numpy as np
-import nba
 import pynbody
+import nba
 
+def process_snapshot(snapname, snapshot_dir, outpath):
+    GC21_disk = nba.ios.ReadGC21(snapshot_dir, snapname)
+    disk_data = GC21_disk.read_halo(['pos', 'vel', 'mass', 'pid', 'pot'], halo='MW', ptype='disk')
 
-snapshot = "/mnt/home/nico/ceph/gadget_runs/MWLMC/MWLMC5_b0/out/"
-snapname = "MWLMC5_100M_b0_vir_OM3_G4_110.hdf5"
-nsnaps=1
-outpath = './'
-# load data
+    GC21_bulge = nba.ios.ReadGC21(snapshot_dir, snapname)
+    bulge_data = GC21_bulge.read_halo(['pos', 'vel', 'mass', 'pid', 'pot'], halo='MW', ptype='bulge')
 
-GC21_disk = nba.ios.ReadGC21(snapshot, snapname)
-GC21_disk_data = GC21_disk.read_halo(
-    ['pos', 'vel', 'mass', 'pid', 'pot'], 
-    halo='MW', ptype='disk'
-    )
+    GC21_halo = nba.ios.ReadGC21(snapshot_dir, snapname)
+    halo_data = GC21_halo.read_halo(['pos', 'vel', 'mass', 'pid', 'pot'], halo='MW', ptype='dm')
 
-GC21_bulge = nba.ios.ReadGC21(snapshot, snapname)
+    # NBA COM
+    disk_com = nba.com.CenterHalo(disk_data)
+    bulge_com = nba.com.CenterHalo(bulge_data)
+    halo_com = nba.com.CenterHalo(halo_data)
 
-GC21_bulge_data = GC21_bulge.read_halo(
-    ['pos', 'vel', 'mass', 'pid', 'pot'], 
-    halo='MW', ptype='bulge'
-    )
+    r = 8
+    nba_disk_pot = np.array(disk_com.min_potential(rcut=r)).flatten()
+    nba_bulge_pot = np.array(bulge_com.min_potential(rcut=r)).flatten()
+    nba_halo_pot = np.array(halo_com.min_potential(rcut=r)).flatten()
 
-GC21_mwhalo = nba.ios.ReadGC21(snapshot, snapname)
-GC21_mwhalo_data = GC21_mwhalo.read_halo(
-    ['pos', 'vel', 'mass', 'pid', 'pot'], 
-    halo='MW', ptype='dm')
+    # Pynbody COM
+    disk_pb = nba.ios.pynbody_routines.createPBhalo(disk_data)
+    bulge_pb = nba.ios.pynbody_routines.createPBhalo(bulge_data)
+    halo_pb = nba.ios.pynbody_routines.createPBhalo(halo_data)
 
+    pb_disk_pot = np.array(pynbody.analysis.center(disk_pb, return_cen=True, with_velocity=True, mode='pot', cen_size='1 kpc'))
+    pb_bulge_pot = np.array(pynbody.analysis.center(bulge_pb, return_cen=True, with_velocity=True, mode='pot', cen_size='1 kpc'))
+    pb_halo_pot = np.array(pynbody.analysis.center(halo_pb, return_cen=True, with_velocity=True, mode='pot', cen_size='1 kpc'))
+    pb_halo_ssc = np.array(pynbody.analysis.center(halo_pb, return_cen=True, with_velocity=True, mode='ssc', cen_size='1 kpc'))
 
-# compute COM with nba
+    # Write to file
+    tag = snapname.replace(".hdf5", "")
+    np.savetxt(f"{outpath}/{tag}_nba_disk_pot.txt", nba_disk_pot.reshape(1, -1))
+    np.savetxt(f"{outpath}/{tag}_nba_bulge_pot.txt", nba_bulge_pot.reshape(1, -1))
+    np.savetxt(f"{outpath}/{tag}_nba_halo_pot.txt", nba_halo_pot.reshape(1, -1))
+    np.savetxt(f"{outpath}/{tag}_pb_disk_pot.txt", pb_disk_pot.reshape(1, -1))
+    np.savetxt(f"{outpath}/{tag}_pb_bulge_pot.txt", pb_bulge_pot.reshape(1, -1))
+    np.savetxt(f"{outpath}/{tag}_pb_halo_pot.txt", pb_halo_pot.reshape(1, -1))
+    np.savetxt(f"{outpath}/{tag}_pb_halo_ssc.txt", pb_halo_ssc.reshape(1, -1))
 
-nba_disk_pot = np.zeros((nsnaps, 6))
-nba_bulge_pot = np.zeros((nsnaps, 6))
-nba_mwhalo_pot = np.zeros((nsnaps, 6))
-pb_disk_pot = np.zeros((nsnaps, 3))
-pb_bulge_pot = np.zeros((nsnaps, 3))
-pb_halo_pot = np.zeros((nsnaps, 3))
-pb_halo_ssc = np.zeros((nsnaps, 3))
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+        print("Usage: python process_com_snapshot.py SNAPNAME SNAPSHOT_DIR OUTPATH")
+        sys.exit(1)
 
-disk_com = nba.com.CenterHalo(GC21_disk_data)
-bulge_com = nba.com.CenterHalo(GC21_bulge_data)
-mwhalo_com = nba.com.CenterHalo(GC21_mwhalo_data)
-
-r=8 # found to be good for velocity COM
-for i in range(nsnaps):
-    nba_bulge_pot[i, :3], nba_bulge_pot[i, 3:] = bulge_com.min_potential(rcut=r)
-    nba_disk_pot[i, :3], nba_disk_pot[i, 3:] = disk_com.min_potential(rcut=r)
-    nba_mwhalo_pot[i, :3], nba_mwhalo_pot[i, 3:] = mwhalo_com.min_potential(rcut=r)
-
-# compute COM with pynbody
-
-MWdisk_pb = nba.ios.pynbody_routines.createPBhalo(GC21_disk_data)
-MWbulge_pb = nba.ios.pynbody_routines.createPBhalo(GC21_bulge_data)
-MWhalo_pb = nba.ios.pynbody_routines.createPBhalo(GC21_mwhalo_data)
-
-for i in range(nsnaps):
-    pb_disk_pot[i] = np.array(pynbody.analysis.center(MWdisk_pb, return_cen=True, with_velocity=True, mode='pot', cen_size='1 kpc'))
-    pb_bulge_pot[i] = np.array(pynbody.analysis.center(MWbulge_pb, return_cen=True, with_velocity=True, mode='pot', cen_size='1 kpc'))
-    pb_halo_pot[i] = np.array(pynbody.analysis.center(MWhalo_pb, return_cen=True, with_velocity=True, mode='pot', cen_size='1 kpc'))
-    pb_halo_ssc[i] = np.array(pynbody.analysis.center(MWhalo_pb, return_cen=True, with_velocity=True, mode='ssc', cen_size='1 kpc'))
-
-# Write centers:
-np.savetxt(outpath + "nba_disk_center.txt", nba_disk_pot)
-    
+    snapname = sys.argv[1]
+    snapshot_dir = sys.argv[2]
+    outpath = sys.argv[3]
+    process_snapshot(snapname, snapshot_dir, outpath)
 
