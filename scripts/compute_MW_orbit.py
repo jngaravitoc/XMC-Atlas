@@ -1,4 +1,4 @@
-# process_com_snapshot.py
+# computes_MW_orbit.py
 import sys
 import numpy as np
 import pynbody
