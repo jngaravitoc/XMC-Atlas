@@ -4,8 +4,8 @@
 
 # === Configuration ===
 
-OUT_DIR="/mnt/home/nico/ceph/projects/XMC-Atlas/scripts/outputs"
-SCRIPT="/mnt/home/nico/ceph/projects/XMC-Atlas/scripts/process_com_snapshot.py"
+OUT_DIR="/mnt/home/nico/ceph/projects/XMC-Atlas/scripts/output"
+SCRIPT_PATH="/mnt/home/nico/ceph/projects/XMC-Atlas/scripts/compute_MW_orbit.py"
 BASE_DIR="/mnt/home/nico/ceph/gadget_runs/MWLMC"
 TASKS_DIR="/mnt/home/nico/ceph/projects/XMC-Atlas/scripts/disbatch_scripts"
 
@@ -28,7 +28,8 @@ for SIM_DIR in "$BASE_DIR"/*/; do
     # Loop through snapshot files in out/
     for SNAPFILE in "$SNAP_DIR"/*.hdf5; do
         if [[ -f "$SNAPFILE" ]]; then
-            echo "python $SCRIPT_PATH $SNAPFILE ./outputs/$SIM_NAME" >> "$TASKFILE"
+            SNAPNAME=$(basename "$SNAPFILE")
+            echo "python $SCRIPT_PATH $SNAPNAME $SNAP_DIR  $OUT_DIR" >> "$TASKFILE"
         fi
     done
 
