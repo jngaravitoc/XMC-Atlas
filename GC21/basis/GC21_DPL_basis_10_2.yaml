@@ -1,0 +1,3 @@
+"id: sphereSL\nparameters:\n  numr: 499\n  rmin: '0.3006012'\n  rmax: '299.699'\n\
+  \  Lmax: 2\n  nmax: 10\n  rmapping: '299.699'\n  modelname: MW_GC21_model.txt\n\
+  \  cachename: .slgrid_sph_cache\n"
