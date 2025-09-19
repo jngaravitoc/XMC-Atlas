@@ -1,0 +1,13 @@
+# config.yaml
+
+snapname: MW_100M_beta1_vir_OM3_G4
+snapshot_dir: /mnt/home/nico/ceph/gadget_runs/MW/out
+outpath: /mnt/home/nico/ceph/projects/XMC-Atlas/GC21/coefficients
+init_snap: 0
+final_snap: 200
+halo_basis_yaml: /mnt/home/nico/ceph/projects/XMC-Atlas/GC21/basis/GC21_MW_DM_halo_10_8.yaml
+coefs_file: ../coefficients/coefs_GC21_MW_DM_halo_10_8.h5 
+dt: 0.02   # snapshot time spacing in Gyr
+component: halo
+runtime_log: MW_runtime_log.txt
+npart: 1000000
