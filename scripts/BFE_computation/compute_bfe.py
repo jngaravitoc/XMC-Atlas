@@ -50,7 +50,7 @@ def load_basis(conf_name):
     return basis
     
 
-def load_snapshot(snapname, snapshot_dir, outpath, npart=None):
+def load_snapshot(snapname, snapshot_dir, orbit_path, npart=None):
     #GC21_bulge = nba.ios.ReadGC21(snapshot_dir, snapname)
     #bulge_data = GC21_bulge.read_halo(['pos', 'vel', 'mass', 'pid', 'pot'], halo='MW', ptype='bulge')
     
@@ -61,7 +61,7 @@ def load_snapshot(snapname, snapshot_dir, outpath, npart=None):
     else:   
         halo_data = GC21_halo.read_halo(['pos', 'vel', 'mass', 'pid', 'pot'], halo='MW', ptype='dm')
 
-    print("*Done loading {snapname}")
+    print("*Done loading {}".format(snapname))
 
     # Load COM 
     tag = re.sub(r"_\d+\.hdf5$", "", snapname)
@@ -72,7 +72,7 @@ def load_snapshot(snapname, snapshot_dir, outpath, npart=None):
     sim = match.group(1)
 
     #bulge_com = np.loadtxt(f"{outpath}/{sim}/{tag}_nba_bulge_pot.txt")[nsnap,0:3]
-    halo_com = np.loadtxt(f"{outpath}/{sim}/{tag}_nba_halo_pot.txt")[nsnap,0:3]
+    halo_com = np.loadtxt(orbit_path)[nsnap,0:3]
 
     # Compute density profile
     mwhalo_rcom = nba.com.CenterHalo(halo_data)
@@ -102,7 +102,8 @@ def load_mwhalo(snapname, snapshot_dir, npart_rand=None):
     return pos, mass, nsnap 
 
 def compute_coefs(basis, component, coefs_file, snapshot_dir, snapname, outpath, npart, dt, runtime_log):
-    pos, mass, nsnap  = load_mwhalo(snapname, snapshot_dir, npart)
+    #pos, mass, nsnap  = load_mwhalo(snapname, snapshot_dir, npart)
+    pos, mass, nsnap  = load_snapshot(snapname, snapshot_dir, outpath, npart)
     sim_time = nsnap * dt # Gyrs
     
     
@@ -119,7 +120,7 @@ def compute_coefs(basis, component, coefs_file, snapshot_dir, snapname, outpath,
 
     end_time = time.time()
     elapsed_time = end_time - start_time
-    print("*Done computing coefficients}")
+    print("*Done computing coefficients")
 
     with open(runtime_log, "a") as f:
         f.write(f"Snapshot {nsnap}: {elapsed_time:.2f} s\n")
@@ -129,7 +130,7 @@ def main(config_file):
     cfg = load_config(config_file)
     snapname = cfg["snapname"]
     snapshot_dir = cfg["snapshot_dir"]
-    outpath = cfg["outpath"]
+    orbit = cfg["orbit"]
     halo_basis_yaml = cfg["halo_basis_yaml"]
     coefs_file = cfg["coefs_file"]
     dt = cfg.get("dt", 0.02)
@@ -150,7 +151,7 @@ def main(config_file):
     
     # Compute coefficients
     for n in range(init_snap, final_snap+1):
-        compute_coefs(basis, component, coefs_file, snapshot_dir, snapname+"_{:03d}.hdf5".format(n), outpath, npart, dt, runtime_log)
+        compute_coefs(basis, component, coefs_file, snapshot_dir, snapname+"_{:03d}.hdf5".format(n), orbit, npart, dt, runtime_log)
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
