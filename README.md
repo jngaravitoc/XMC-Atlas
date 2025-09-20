@@ -9,9 +9,9 @@ To contribute, please make a pull request (PR) including the following informati
 
 - Fill out the model parameters with the following information:
   
-  [] Orbit files of the LMC and the MW
-  [] Halo properties of the LMC and the MW represented as a Gala potential representation
-  [] Reference of the paper where the models are presented
+  [ ] Orbit files of the LMC and the MW
+  [ ] Halo properties of the LMC and the MW represented as a Gala potential representation
+  [ ] Reference of the paper where the models are presented
 - Add the new model in the model folder with the following subdirectories:
   - coefficients/
   - model_params/
