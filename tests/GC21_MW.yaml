@@ -1,0 +1,10 @@
+---
+id: sphereSL
+parameters:
+  numr: 600
+  rmin: 0.10000
+  rmax: 300.0
+  Lmax: 8
+  nmax: 10
+  modelname: GC21_MW_DM_halo.txt
+  cachename: cache_GC21_MW_DM_halo_10_8.h5
