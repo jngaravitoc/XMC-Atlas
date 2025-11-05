@@ -11,6 +11,8 @@ import pynbody
 import nba
 import pyEXP
 
+from ios_nbody_sims import LoadSim
+
 def load_config(config_file):
     """Load YAML configuration parameters."""
     with open(config_file, 'r') as f:
@@ -50,19 +52,10 @@ def load_basis(conf_name):
     return basis
     
 
-def load_snapshot(snapname, snapshot_dir, orbit_path, npart=None):
-    #GC21_bulge = nba.ios.ReadGC21(snapshot_dir, snapname)
-    #bulge_data = GC21_bulge.read_halo(['pos', 'vel', 'mass', 'pid', 'pot'], halo='MW', ptype='bulge')
-    
-    GC21_halo = nba.ios.ReadGC21(snapshot_dir, snapname)
+#load_halo(snapname, snapshot_dir, orbit_path, halo, npart=None):
 
-    if npart:
-        halo_data = GC21_halo.read_halo(['pos', 'vel', 'mass', 'pid', 'pot'], halo='MW', ptype='dm', randomsample=npart)
-    else:   
-        halo_data = GC21_halo.read_halo(['pos', 'vel', 'mass', 'pid', 'pot'], halo='MW', ptype='dm')
 
-    print("*Done loading {}".format(snapname))
-
+def load_center(center_path):
     # Load COM 
     tag = re.sub(r"_\d+\.hdf5$", "", snapname)
     nsnap = int(re.search(r'_(\d+)\.hdf5$', snapname).group(1))
@@ -72,7 +65,10 @@ def load_snapshot(snapname, snapshot_dir, orbit_path, npart=None):
     sim = match.group(1)
 
     #bulge_com = np.loadtxt(f"{outpath}/{sim}/{tag}_nba_bulge_pot.txt")[nsnap,0:3]
-    halo_com = np.loadtxt(orbit_path)[nsnap,0:3]
+    halo_com_pos = np.loadtxt(center_path)[nsnap,0:3]
+
+    return halo_com_pos
+
 
     # Compute density profile
     mwhalo_rcom = nba.com.CenterHalo(halo_data)
@@ -83,29 +79,20 @@ def load_snapshot(snapname, snapshot_dir, orbit_path, npart=None):
  
     return halo_com, halo_data['mass'], nsnap
 
-def load_mwhalo(snapname, snapshot_dir, npart_rand=None):
-    MWhalo = nba.ios.ReadGadgetSim(snapshot_dir, snapname)
-    MW = MWhalo.read_snapshot(['pos', 'mass'], 'dm')
-    npart = len(MW['mass'])
-    nsnap = int(re.search(r'_(\d+)\.hdf5$', snapname).group(1))
-
-    if npart_rand:
-        npart_sample = npart_rand
-        sample_factor = npart / npart_sample
-        rand_part = np.random.randint(0, npart, npart_sample)
-        pos = MW['pos'][rand_part]
-        mass = MW['mass'][rand_part] * sample_factor
-    else:
-        pos = MW['pos']
-        mass = MW['mass']
-
-    return pos, mass, nsnap 
-
-def compute_coefs(basis, component, coefs_file, snapshot_dir, snapname, outpath, npart, dt, runtime_log):
+def compute_coefs(basis, component, coefs_file, snapshot_dir, snapname, expanion_center, npart, dt, runtime_log):
     #pos, mass, nsnap  = load_mwhalo(snapname, snapshot_dir, npart)
-    pos, mass, nsnap  = load_snapshot(snapname, snapshot_dir, outpath, npart)
-    sim_time = nsnap * dt # Gyrs
+    #pos, mass, nsnap  = load_snapshot(snapname, snapshot_dir, outpath, npart)
+ 
+    halo_data = LoadSim(snapshot_dir, snapname, expansion_center, npart)
+    # Load center
+    center = load_center(orbit)
+
+    mwhalo_recenter = nba.com.CenterHalo(halo_data)
+    mwhalo_recenter.recenter(halo_com, center)    
+
+    sim_time = nsnap * dt # Gyrs # TODO get this from header! 
     
+    # re-center
     
     # Compute coefficients
     start_time = time.time()
@@ -127,19 +114,23 @@ def compute_coefs(basis, component, coefs_file, snapshot_dir, snapname, outpath,
 
 
 def main(config_file):
+    #TODO: check that there are all these snapshots in the folder before starting BFE
+    #computation.
+
     cfg = load_config(config_file)
     snapname = cfg["snapname"]
     snapshot_dir = cfg["snapshot_dir"]
     orbit = cfg["orbit"]
     halo_basis_yaml = cfg["halo_basis_yaml"]
     coefs_file = cfg["coefs_file"]
-    dt = cfg.get("dt", 0.02)
+    dt = cfg.get("dt", 0.02) # TODO: see if this can obtain from snap header?
     component = cfg.get("component", "dm")
     runtime_log = cfg.get("runtime_log", "runtime_log.txt")
     npart = cfg.get("npart", None)
 
     init_snap = cfg["init_snap"]    
     final_snap = cfg["final_snap"]    
+
 
     if not os.path.exists(halo_basis_yaml):
         raise FileNotFoundError(f"Basis file not found: {halo_basis_yaml}")
