@@ -1,28 +1,39 @@
 # TODO load bulge and disk particles
 import numpy as np
 import nba
-import pyEXP
 
 class LoadSim:
-    def init(self, snapshot_dir, snapname, origin_filename):
-        #self.suite = suite
-        self.snapshot_dir = snapsht_dir
+    def __init__(self, snapshot_dir, snapname, origin_filename, suite):
+        """
+        XMC-Atlas class to load particle data from simulations suites
+        """
+
+        self.snapshot_dir = snapshot_dir
         self.snapname = snapname
+        # TODO: Re-center halos this vvv
         self.origin_filename = origin_filename
+        self.suite = suite
+
 
     def load_mw_bulge(self, quantities=['pos', 'mass']):
-        GC21_bulge = nba.ios.ReadGC21(self.snapshot_dir, self.snapname)
-        bulge_data = GC21_bulge.read_halo(quantities, halo='MW', ptype='bulge')
+        if self.suite == 'GC21':
+            GC21_bulge = nba.ios.ReadGC21(self.snapshot_dir, self.snapname)
+            bulge_data = GC21_bulge.read_halo(quantities, halo='MW', ptype='bulge')
+        """
+        elif self.suite == 'Sheng':
+            Sheng_bulge = nba.ios.ReadGadgetSim(self.snapshot_dir, self.snapname)
+            bulge_data = Sheng_bulge.read_halo(quantities)
+        """
         return bulge_data
-
+        
     def load_mw_disk(self, quantities=['pos', 'mass']):
         GC21_disk = nba.ios.ReadGC21(self.snapshot_dir, self.snapname)
         disk_data = GC21_disk.read_halo(quantities, halo='MW', ptype='disk')
         return disk_data
 
-    def load_halo(self, quantities=['pos', 'mass'], npart=None):
-        if halo == 'MW' | 'LMC':
-            C21_halo = nba.os.ReadGC21(self.snapshot_dir, self.snapname)
+    def load_halo(self, halo,  quantities=['pos', 'mass'], npart=None):
+        if halo == 'MW' or'LMC':
+            GC21_halo = nba.ios.ReadGC21(self.snapshot_dir, self.snapname)
             if npart:
                 halo_data = GC21_halo.read_halo(quantities, halo='MW', ptype='dm', randomsample=npart)
             else:   
