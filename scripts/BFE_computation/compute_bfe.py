@@ -282,10 +282,10 @@ def main(config_file, expansion_type, suite):
     unit_system=None
     compute_variance = True
 
-    # TODO add the output for the log -> should be the same as the coefficients
-    log_name = "bfe_computation_" + snapname + ".log" 
+    # TODO check if outpath end in / or not
+    log_name = f"{outpath}exp_expansion_{snapname}.log"
     setup_logger(log_name)
-
+    
     # Check that coefficients file exist
     check_coefficients_path(outpath)
 
