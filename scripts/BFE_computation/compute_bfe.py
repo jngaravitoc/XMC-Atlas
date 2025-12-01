@@ -3,7 +3,7 @@ import os
 import sys
 import re
 import time
-
+import logging
 import numpy as np
 import yaml
 import pynbody
@@ -11,120 +11,154 @@ import pynbody
 import nba
 import pyEXP
 
+# Local libraries
 from ios_nbody_sims import LoadSim
+from compute_bfe_helpers import (
+    read_simulations_files,
+    load_basis, 
+    load_config_file,
+    setup_logger
+)
 
-def load_config(config_file):
-    """Load YAML configuration parameters."""
-    with open(config_file, 'r') as f:
-        return yaml.safe_load(f)
 
-def load_basis(conf_name):
+def check_coefficients_path(outpath):
+    if os.path.isdir(outpath):
+        logging.info("Coefficients folder exists")
+    else:
+        logging.info("Creating coefficients folder in: {folder_path}")
+        os.makedirs(outpath, exist_ok=True)
+
+def sample_snapshots(nsnaps_to_compute_exp):
+    # TODO ensure snaps_to_compute_exp return integers.
+    if nsnaps_to_compute_exp == None:
+        snaps_to_compute_exp = np.arange(initial_snap, final_snap+1, 1, dtype=int)
+        assert snaps_to_compute_exp[0] == initial_snap
+        assert snaps_to_compute_exp[-1] == final_snap
+    else:
+        snaps_to_compute_exp = np.linspace(
+                initial_snap, 
+                final_snap, 
+                nsnaps_to_compute_exp,
+                endpoint=True
+                )
+        
+    return snaps_to_compute_exp
+
+def load_GC21_exp_center(nsnap, component, suite, return_vel=False ):
     """
-    Load a basis configuration from a YAML file and initialize a Basis object.
+    Loads the center of the GC21 simulations
 
-    Parameters
+    Paramters:
     ----------
-    conf_name : str
-        Path to the YAML configuration file. If the provided filename does not 
-        end with `.yaml`, the extension is automatically appended.
+    centers_parh : str
+        filename with the centers.
 
-    Returns
-    -------
-    basis : pyEXP.basis.Basis
-        An initialized Basis object created from the configuration.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the specified YAML file does not exist.
-    """
-
-    # Check file existence
-    if not os.path.exists(conf_name):
-        raise FileNotFoundError(f"Configuration file not found: {conf_name}")
-
-    # Load YAML safely
-    with open(conf_name, "r") as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-
-    # Build basis from configuration
-    basis = pyEXP.basis.Basis.factory(config)
-    return basis
+    Returns:
+    --------
     
+    halo_com_pos : np.ndarray, shape (3,N)
+    halo_com_vel : np.ndarray, shape (3,N) (optional)
 
-#load_halo(snapname, snapshot_dir, orbit_path, halo, npart=None):
-
-
-def load_center(snapname, center_path):
-    # Load COM 
-    tag = re.sub(r"_\d+\.hdf5$", "", snapname)
-    nsnap = int(re.search(r'_(\d+)\.hdf5$', snapname).group(1))
+    TODO: This could be skipped by loading once the snapshots and caching the orbit to avoid
+    reading at every snapshot.
+    
+    """
+    
+    #tag = re.sub(r"_\d+\.hdf5$", "", str(snapname))
+    #print(tag, snapname)
+    #nsnap = int(re.search(r'_(\d+)\.hdf5$', snapname).group(1))
     
     # Identify LMC model
-    match = re.match(r"^([A-Za-z0-9]+)_", snapname)
-    sim = match.group(1)
+    #match = re.match(r"^([A-Za-z0-9]+)_", snapname)
+    #sim = match.group(1)
 
-    #bulge_com = np.loadtxt(f"{outpath}/{sim}/{tag}_nba_bulge_pot.txt")[nsnap,0:3]
-    halo_com_pos = np.loadtxt(center_path)[nsnap,0:3]
-    halo_com_vel = np.loadtxt(center_path)[nsnap,3:6]
+    center_file = read_simulations_files(simulation_files, suite, component, quantity='expansion_center')
+    # TODO this should be in the params file 
+    density_center = np.loadtxt("/n/nyx3/garavito/projects/XMC-Atlas/scripts/output/MW/"+center_file)[nsnap,0:3]
 
-    return halo_com_pos, halo_com_vel, nsnap
+    if return_vel == True:
+        velocity_center = np.loadtxt(center_file)[nsnap,3:6]
+        return density_center, velocity_center
+    else:
+        return density_center
 
+
+def recentering(particle_data, nsnap, component, suite):
     """
-    # Compute density profile
-    mwhalo_rcom = nba.com.CenterHalo(halo_data)
-    mwhalo_rcom.recenter(halo_com, np.array([0,0,0]))    
+    Recenters particle data
 
-    #mwbulge_rcom = nba.com.CenterHalo(bulge_data)
-    #mwbulge_rcom.recenter(bulge_com, np.array([0,0,0]))    
- 
-    return halo_com, halo_data['mass'], nsnap
+    Parameters:
+    -----------
+    particle data : np.ndarray, shape (N, 3)
+    snapname : str
+        string with the snapshot name
+    density_center : np.ndarray, shape (3)
+
+    TODO: adds velocity center if needed!
     """
-
-def recentering(particle_data, snapname, center):
-    center = load_center(snapname, center)
-    mwhalo_recenter = nba.com.CenterHalo(particle_data)
-    mwhalo_recenter.recenter(halo_data, center)    
+    # Load expansion centers
+    expansion_center = load_GC21_exp_center(nsnap, component, suite)
+    particle_data['pos'] = particle_data['pos'] -  expansion_center 
     return particle_data
 
-def load_particles_data(snapshot_dir, snapname, expansion_center, dt, component): 
+# TODO move this function to bfe_computation_helper.py
+def load_particle_data(expansion_center, component, suite, nsnap, **kwargs):
+    """
+    Load particle data
 
-    load_data = LoadSim(snapshot_dir, snapname, expansion_center)
+    Returns:
+    --------
+
+    Particle data:
+
+    snap_time:
+    """
+    full_snapname = snapname + "_{:03d}.hdf5".format(nsnap)
+    load_data = LoadSim(snapshot_dir, full_snapname, expansion_center, suite)
     # Load center
-    center = load_center(snapname, orbit)
-
+    print("--------------------------------")
     if component=='MWHaloiso':
-        particle_data = load_data.load_halo('MWnoLMC')
+        particle_data = load_data.load_halo('MWnoLMC', **kwargs)
     
     elif component=='MWHalo':
-        particle_data = load_data.load_halo('MW')
+        particle_data = load_data.load_halo('MW', **kwargs)
     
     elif component=='LMChalo':
-        particle_data = load_data.load_halo('LMC')
+        particle_data = load_data.load_halo('LMC', **kwargs)
      
     elif component=='MWdisk':
         particle_data = load_data.load_mw_disk(**kwargs)
     
     elif component=='MWbulge':
         particle_data = load_data.load_mw_bulge(**kwargs)
-    
-    
-    particle_data = recentering(particle_data, snapname, centers)
 
-    snap_times = nsnap * dt # Gyrs # TODO get this from header! 
+    logging.info("Done loading snapshot")
+    
+    # TODO check: are we passing here nsnap too?
+    particle_data = recentering(particle_data, nsnap, component, suite)
+    logging.info("Done re-centering data")
+    # TODO does this need to be done here?
+    snap_times = load_data.load_snap_time() 
+    logging.info("Done loading snap-time data")
 
     return particle_data, snap_times
 
-def compute_exp_coefs(halo_data, basis, component, coefs_file, runtime_log):
-    #pos, mass, nsnap  = load_mwhalo(snapname, snapshot_dir, npart)
-    #pos, mass, nsnap  = load_snapshot(snapname, snapshot_dir, outpath, npart)
- 
-    
+def compute_exp_coefs(halo_data, snap_time, basis, component, coefs_file, unit_system, runtime_log, **kwargs):
     # Compute coefficients
+    # TODO define units
     start_time = time.time()
-    coef = basis.createFromArray(halo_data['mass'], halo_data['pos'], sim_time)
+    coef = basis.createFromArray(halo_data['mass'], halo_data['pos'], snap_time)
     coefs = pyEXP.coefs.Coefs.makecoefs(coef, name=component)
     coefs.add(coef)
+    
+    #TODO: move unit systems to another function or a file
+    if unit_system == 'Gadget':
+        coefs.setUnits([ 
+        ('mass', 'Msun', 1e10), 
+        ('length', 'kpc', 1.0),
+        ('velocity', 'km/s', 1.0), 
+        ('G', 'mixed', 43007.1) 
+        ])
 
     if os.path.exists(coefs_file):
         coefs.ExtendH5Coefs(coefs_file)
@@ -134,10 +168,12 @@ def compute_exp_coefs(halo_data, basis, component, coefs_file, runtime_log):
     end_time = time.time()
     elapsed_time = end_time - start_time
     print("*Done computing coefficients")
-
+    
     with open(runtime_log, "a") as f:
-        f.write(f"Snapshot {nsnap}: {elapsed_time:.2f} s\n")
-
+        nparticles = len(halo_data['mass'])
+        f.write(f"Coefficients for snapshot t={snap_time}\
+                  and nparticles={nparticles} computed \
+                  in: {elapsed_time:.2f} s\n")
 
 
 def compute_agama_coefs(snapshot_dir, snapname, expansion_center, npart, dt, runtime_log):
@@ -216,44 +252,97 @@ def compute_agama_coefs(snapshot_dir, snapname, expansion_center, npart, dt, run
 	
 
 def main(config_file, expansion_type, suite):
+    
     #TODO: check that there are all these snapshots in the folder before starting BFE
     #computation.
-
-    cfg = load_config(config_file)
+    global snapname
+    global snapshot_dir
+    global simulation_files
+    global outpath
+    
+    # Load parameters
+    cfg = load_config_file(config_file)
     snapname = cfg["snapname"]
     snapshot_dir = cfg["snapshot_dir"]
-    orbit = cfg["orbit"]
-    dt = cfg.get("dt", 0.02) # TODO: see if this can obtain from snap header?
-    component = cfg.get("component", "dm")
+    expansion_center = cfg["exp_center"] 
+    component = cfg["component"]
+    initial_snap = cfg["initial_snap"]    
+    final_snap = cfg["final_snap"]        
+    outpath = cfg["outpath"]
+    # TODO chance name to coefficients_name 
+    coefs_file = cfg["coeficients_filename"]
+    # optional parameters:
+    npart = cfg.get("npart_per_snapshot", None)
     runtime_log = cfg.get("runtime_log", "runtime_log.txt")
-    npart = cfg.get("npart", None)
+    nsnaps_to_compute_exp = cfg.get("nsnaps_to_compute_exp", None)
+    # EXP parameters:
+    basis_paths = cfg.get("basis_paths", None)
+    simulation_files = "/n/nyx3/garavito/projects/XMC-Atlas/scripts/BFE_computation/basis_files.txt"
+    unit_system='Gadget'
+    unit_system=None
+    compute_variance = True
 
-    init_snap = cfg["init_snap"]    
-    final_snap = cfg["final_snap"]    
+    # TODO add the output for the log -> should be the same as the coefficients
+    log_name = "bfe_computation_" + snapname + ".log" 
+    setup_logger(log_name)
 
+    # Check that coefficients file exist
+    check_coefficients_path(outpath)
 
-    if expansion_type=='EXP':
-        os.chdir('../../GC21/basis/')
-        halo_basis_yaml = cfg["halo_basis_yaml"]
-        coefs_file = cfg["coefs_file"]
-        
-        if not os.path.exists(halo_basis_yaml):
-            raise FileNotFoundError(f"Basis file not found: {halo_basis_yaml}")
+    # Compute coefficients in a sample of snapshots
+    snaps_to_compute_exp = sample_snapshots(nsnaps_to_compute_exp)
+
+    # TODO check that all the snaps_to_compute_exp snapshots are in the folder 
     
-        
+    # EXP 
+    if expansion_type=='EXP':
+        # Move to directory conteining basis files
+        os.chdir(basis_paths)
         # Load basis
-        basis = load_basis(halo_basis_yaml) 
-        
-        # Compute coefficients
-        for n in range(init_snap, final_snap+1):
-            compute_exp_coefs(basis, component, coefs_file, snapshot_dir,
-                              snapname+"_{:03d}.hdf5".format(n), 
-                              orbit, npart, dt, runtime_log, suite)
+        # Basis_file_name_path
+        basis = load_basis(simulation_files, component, suite) 
+        if compute_variance:
+            # TODO: what is the 100 for?
+            basis.enableCoefCovariance(True, 100)
+            logging.info("Enabling varianve computation")
+            
 
+        loggin.info("-> Done loading basis")
+        # Compute coefficients
+        for n in range(initial_snap, final_snap+1):
+             
+            particle_data, snap_time = load_particle_data(
+                expansion_center, 
+                component, 
+                suite,
+                nsnap=n,
+                npart=npart,
+                )
+            logging.info("Done loading particle data")
+
+            # Define unit system
+            compute_exp_coefs(
+                particle_data, 
+                snap_time,
+                basis, 
+                component, 
+                coefs_file,
+                unit_system,
+                runtime_log)
+
+            logging.info("Done computing coefficients")
+
+
+    # AGAMA
     elif expansion_type=='AGAMA':
         for n in range(init_snap, final_snap+1):
-            compute_agama_coefs(snapshot_dir, snapname+"_{:03d}.hdf5".format(n), 
-                                orbit, npart, dt, runtime_log)
+            compute_agama_coefs(
+                snapshot_dir, 
+                snapname+"_{:03d}.hdf5".format(n), 
+                orbit, 
+                npart, 
+                dt, 
+                runtime_log)
 
         
 
