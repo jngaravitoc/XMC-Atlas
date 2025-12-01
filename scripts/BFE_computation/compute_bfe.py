@@ -1,4 +1,5 @@
-# computes EXP coefficients
+# computes EXP coefficients for the XMC-Atlas
+
 import os
 import sys
 import re
@@ -17,7 +18,8 @@ from compute_bfe_helpers import (
     read_simulations_files,
     load_basis, 
     load_config_file,
-    setup_logger
+    setup_logger,
+    check_snaps_in_folder,
 )
 
 
@@ -29,19 +31,17 @@ def check_coefficients_path(outpath):
         os.makedirs(outpath, exist_ok=True)
 
 def sample_snapshots(nsnaps_to_compute_exp):
-    # TODO ensure snaps_to_compute_exp return integers.
-    if nsnaps_to_compute_exp == None:
-        snaps_to_compute_exp = np.arange(initial_snap, final_snap+1, 1, dtype=int)
-        assert snaps_to_compute_exp[0] == initial_snap
-        assert snaps_to_compute_exp[-1] == final_snap
-    else:
-        snaps_to_compute_exp = np.linspace(
-                initial_snap, 
-                final_snap, 
-                nsnaps_to_compute_exp,
-                endpoint=True
-                )
-        
+    snaps_to_compute_exp = np.arange(initial_snap, final_snap+1, 1, dtype=int)
+    nsnaps = len(snaps_to_compute_exp)
+
+    assert snaps_to_compute_exp[0] == initial_snap
+    assert snaps_to_compute_exp[-1] == final_snap
+    if nsnaps_to_compute_exp != "all":
+        nsample = round(nsnaps / nsnaps_to_compute_exp)
+        snaps_to_compute_exp = snaps_to_compute_exp[::nsample]
+    
+    nsnaps_sample = len(snaps_to_compute_exp)
+    logging.info("Computing coefficients in {:04d} snapshots".format(nsnaps_sample))
     return snaps_to_compute_exp
 
 def load_GC21_exp_center(nsnap, component, suite, return_vel=False ):
