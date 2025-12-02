@@ -1,0 +1,28 @@
+# config.yaml
+# Directory paths make sure they end up in /
+paths: 
+  snapshot_dir: "/n/nyx3/garavito/XMC-Atlas-sims/GC21/MW/out/"
+  output_dir: "/n/nyx3/garavito/projects/XMC-Atlas/scripts/BFE_computation/test_files/" 
+  coefficients_filename: "test_exp_coefficients_wunits_and_variance.h5" 
+
+# Simulation details
+simulations:
+  snapname: MW_100M_beta1_vir_OM3_G4
+  component: MWHaloiso
+  initial_snap: 0
+  final_snap: 1
+  # if null it will compute the expansion in all the snapshots
+  nsnaps_to_compute_exp: null
+  npart_per_snapshot: 1000000
+  simulation_files: "/n/nyx3/garavito/projects/XMC-Atlas/scripts/output/MW/"
+
+exp: 
+  basis_paths: "/n/nyx3/garavito/projects/XMC-Atlas/scripts/test_files/"
+  compute_bfe_variance: false
+  units_system: "gadget" 
+
+agama:
+  rmax_exp: null
+  rmax_sel: null
+  pole_l: null
+  sym: null
