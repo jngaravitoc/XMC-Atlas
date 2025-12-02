@@ -4,7 +4,6 @@ import yaml
 import pyEXP
 import logging
 
-
 def setup_logger(logfile="bfe_computation.log"):
     logging.basicConfig(
         filename=logfile,

@@ -269,7 +269,7 @@ def main(config_file, expansion_type, suite):
     initial_snap = cfg["initial_snap"]    
     final_snap = cfg["final_snap"]        
     outpath = cfg["outpath"]
-    # TODO chance name to coefficients_name 
+    # TODO chance name to coeficients_name 
     coefs_file = cfg["coeficients_filename"]
     # optional parameters:
     npart = cfg.get("npart_per_snapshot", None)
@@ -282,18 +282,21 @@ def main(config_file, expansion_type, suite):
     unit_system=None
     compute_variance = True
 
+
     # TODO check if outpath end in / or not
     log_name = f"{outpath}exp_expansion_{snapname}.log"
+    print(f"Log file created in: {log_name}")
     setup_logger(log_name)
     
     # Check that coefficients file exist
     check_coefficients_path(outpath)
 
-    # Compute coefficients in a sample of snapshots
+    # Sample of snapshots in which the coefficients are going to be computed
     snaps_to_compute_exp = sample_snapshots(nsnaps_to_compute_exp)
 
     # TODO check that all the snaps_to_compute_exp snapshots are in the folder 
-    
+    check_snaps_in_folder()
+
     # EXP 
     if expansion_type=='EXP':
         # Move to directory conteining basis files

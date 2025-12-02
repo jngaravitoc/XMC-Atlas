@@ -3,9 +3,9 @@ import numpy as np
 import nba
 import os
 
-def check_files_in_folder(folder_path, expected_files):
+def check_snaps_in_folder(folder_path, expected_files):
     """
-    Check that all expected files exist inside a folder.
+    Check that all expected snapshots exist inside a folder.
 
     Parameters
     ----------
@@ -37,7 +37,6 @@ def check_files_in_folder(folder_path, expected_files):
         )
 
     return True
-
 
 
 class LoadSim:
