@@ -29,8 +29,8 @@ from typing import Iterable, Mapping, Sequence
 import numpy as np
 import agama
 
-# Units: assume Msol, kpc, km/s
-agama.setUnits(mass=1, length=1, velocity=1)  # Msol, kpc, km/s
+# Units for Gadget: assume 1e10 Msol, kpc, km/s
+agama.setUnits(mass=1e10, length=1, velocity=1)  # Msol, kpc, km/s
 
 
 def create_GizmoLike_snapshot(
