@@ -11,7 +11,7 @@ def setup_logger(logfile="bfe_computation.log"):
         format="%(asctime)s [%(levelname)s] %(message)s",
         level=logging.INFO                # or DEBUG for more detail
     )
-
+    
 
 def read_simulations_files(sims_file_path, suite, component, quantity):
     """
@@ -64,6 +64,59 @@ def load_config_file(config_file):
     """
     with open(config_file, 'r') as f:
         return yaml.safe_load(f)
+
+def load_config_file(config_path):
+    """
+    Load and parse the configuration YAML file.
+
+    Parameters
+    ----------
+    config_path : str or Path
+        Path to the YAML configuration file.
+
+    Returns
+    -------
+    dict
+        A dictionary containing all YAML entries, plus an additional key
+        `expansion_type` which can be either "EXP" or "AGAMA" depending on
+        which block (`exp` or `agama`) is non-null in the YAML file.
+
+        If both `exp` and `agama` are provided, "EXP" takes precedence.
+        If both are null, `expansion_type` will be None.
+
+    Notes
+    -----
+    The YAML file is expected to contain the sections:
+    - "paths"
+    - "simulations"
+    - "exp"
+    - "agama"
+
+    The function determines `expansion_type` as follows:
+    - If the `exp` section is not null → "EXP"
+    - Else if the `agama` section is not null → "AGAMA"
+    - Else → None
+    """
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
+
+    # Determine expansion type
+    exp_block = config.get("exp")
+    agama_block = config.get("agama")
+
+    if exp_block is not None:
+        expansion_type = "EXP"
+    elif agama_block is not None:
+        expansion_type = "AGAMA"
+    else:
+        expansion_type = None
+
+    config["expansion_type"] = expansion_type
+
+    return config
 
 def load_basis(basis_path, component, suite):
     """

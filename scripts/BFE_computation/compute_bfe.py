@@ -3,6 +3,7 @@
 import os
 import sys
 import re
+import datetime
 import time
 import logging
 import numpy as np
@@ -13,35 +14,33 @@ import nba
 import pyEXP
 
 # Local libraries
-from ios_nbody_sims import LoadSim
+from ios_nbody_sims import LoadSim, check_snaps_in_folder
 from compute_bfe_helpers import (
     read_simulations_files,
     load_basis, 
     load_config_file,
     setup_logger,
-    check_snaps_in_folder,
 )
-
 
 def check_coefficients_path(outpath):
     if os.path.isdir(outpath):
-        logging.info("Coefficients folder exists")
+        logging.info(f"> Coefficients {outpath} folder exists")
     else:
-        logging.info("Creating coefficients folder in: {folder_path}")
+        logging.info(f"> Creating coefficients folder in: {outpath}")
         os.makedirs(outpath, exist_ok=True)
 
-def sample_snapshots(nsnaps_to_compute_exp):
+def sample_snapshots(initial_snap, final_snap, nsnaps_to_compute_exp):
     snaps_to_compute_exp = np.arange(initial_snap, final_snap+1, 1, dtype=int)
     nsnaps = len(snaps_to_compute_exp)
 
     assert snaps_to_compute_exp[0] == initial_snap
     assert snaps_to_compute_exp[-1] == final_snap
-    if nsnaps_to_compute_exp != "all":
+    if nsnaps_to_compute_exp:
         nsample = round(nsnaps / nsnaps_to_compute_exp)
         snaps_to_compute_exp = snaps_to_compute_exp[::nsample]
     
     nsnaps_sample = len(snaps_to_compute_exp)
-    logging.info("Computing coefficients in {:04d} snapshots".format(nsnaps_sample))
+    logging.info("Computing coefficients in {} snapshots".format(nsnaps_sample))
     return snaps_to_compute_exp
 
 def load_GC21_exp_center(nsnap, component, suite, return_vel=False ):
@@ -248,55 +247,66 @@ def compute_agama_coefs(snapshot_dir, snapname, expansion_center, npart, dt, run
     
     print("*Done computing Agama coefficients")
 
-
-	
-
-def main(config_file, expansion_type, suite):
-    
+def main(config_file, suite): 
     #TODO: check that there are all these snapshots in the folder before starting BFE
     #computation.
     global snapname
     global snapshot_dir
     global simulation_files
-    global outpath
+    global output_dir
     
     # Load parameters
     cfg = load_config_file(config_file)
-    snapname = cfg["snapname"]
-    snapshot_dir = cfg["snapshot_dir"]
-    expansion_center = cfg["exp_center"] 
-    component = cfg["component"]
-    initial_snap = cfg["initial_snap"]    
-    final_snap = cfg["final_snap"]        
-    outpath = cfg["outpath"]
-    # TODO chance name to coeficients_name 
-    coefs_file = cfg["coeficients_filename"]
-    # optional parameters:
-    npart = cfg.get("npart_per_snapshot", None)
-    runtime_log = cfg.get("runtime_log", "runtime_log.txt")
-    nsnaps_to_compute_exp = cfg.get("nsnaps_to_compute_exp", None)
-    # EXP parameters:
-    basis_paths = cfg.get("basis_paths", None)
-    simulation_files = "/n/nyx3/garavito/projects/XMC-Atlas/scripts/BFE_computation/basis_files.txt"
-    unit_system='Gadget'
-    unit_system=None
-    compute_variance = True
+    snapshot_dir = cfg["paths"]["snapshot_dir"]
+    output_dir = cfg["paths"]["output_dir"]
+    coefs_file = cfg["paths"]["coefficients_filename"]
+    # Simulations parameters
+    snapname = cfg["simulations"]["snapname"]
+    component = cfg["simulations"]["component"]
+    initial_snap = cfg["simulations"]["initial_snap"]    
+    final_snap = cfg["simulations"]["final_snap"]        
+    nsnaps_to_compute_exp = cfg["simulations"]["nsnaps_to_compute_exp"]
+    npart = cfg["simulations"]["npart_per_snapshot"]
+    simulation_files = cfg["simulations"]["simulation_files"] 
 
-
-    # TODO check if outpath end in / or not
-    log_name = f"{outpath}exp_expansion_{snapname}.log"
-    print(f"Log file created in: {log_name}")
-    setup_logger(log_name)
+    expansion_type = cfg["expansion_type"]
+    # Expansion type
+    if cfg["expansion_type"] == "EXP":
+        basis_paths = cfg["exp"]["basis_paths"]
+        unit_system= cfg["exp"]["units_system"]
+        compute_variance = cfg["exp"]["compute_bfe_variance"]
     
+    elif cfg["expansion_type"] == "AGAMA":
+        rmax_exp = cfg["agama"]["rmax_exp"]
+        rmax_sel = cfg["agama"]["rmax_sel"]
+        pole_l = cfg["agama"]["pole_l"]
+        sym = cfg["agama"]["sym"]
+
     # Check that coefficients file exist
-    check_coefficients_path(outpath)
+    check_coefficients_path(output_dir)
+    
+    log_name = f"{output_dir}exp_expansion_{snapname}.log"
+    print(f"> Log file created in: {log_name}")
+    setup_logger(log_name)
+    logging.info("Expansion created on:")
+    logging.info(str(datetime.datetime.now()))
+    logging.info("Expansion run with the following parameters:")
+    logging.info(cfg)
+    
 
-    # Sample of snapshots in which the coefficients are going to be computed
-    snaps_to_compute_exp = sample_snapshots(nsnaps_to_compute_exp)
+    # Sample the snapshots in which the coefficients are going to be computed
+    snaps_to_compute_exp = sample_snapshots(initial_snap, final_snap, nsnaps_to_compute_exp)
+    nsnaps = len(snaps_to_compute_exp)
 
-    # TODO check that all the snaps_to_compute_exp snapshots are in the folder 
-    check_snaps_in_folder()
+    # TODO check that all the snaps_to_compute_exp snapshots are in the folder
+    all_snapnames = []
+    for n in range(nsnaps):
+        all_snapnames.append(snapname+ "_{:03d}.hdf5".format(snaps_to_compute_exp[n]))
+    check_snaps_in_folder(snapshot_dir, all_snapnames)
 
+    logging.info(f"> All snapshots found in {snapshot_dir}")
+    sys.exit()
+    
     # EXP 
     if expansion_type=='EXP':
         # Move to directory conteining basis files
@@ -307,9 +317,8 @@ def main(config_file, expansion_type, suite):
         if compute_variance:
             # TODO: what is the 100 for?
             basis.enableCoefCovariance(True, 100)
-            logging.info("Enabling varianve computation")
+            logging.info("Enabling variance computation")
             
-
         loggin.info("-> Done loading basis")
         # Compute coefficients
         for n in range(initial_snap, final_snap+1):
@@ -347,16 +356,18 @@ def main(config_file, expansion_type, suite):
                 dt, 
                 runtime_log)
 
-        
+    else: 
+        raise NotImplementedError("Only AGAMA and EXP expansions are implemented")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 2:
         print("Usage: python compute_exp_coefficients.py CONFIG_FILE.yaml")
+        config_example = "https://github.com/jngaravitoc/XMC-Atlas/tree/main/scripts/BFE_computation/config_files"
+        print("A CONFIG_FILE example can be found at: {config_example}")
         sys.exit(1)
+        
     config = sys.argv[1]
-    expansion_type = sys.argv[2]
-    
     suites = ['GC21']
     
     for suite in suites:
-        main(config, expansion_type, suite)
+        main(config, suite)

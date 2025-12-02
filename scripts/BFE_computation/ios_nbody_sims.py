@@ -25,7 +25,7 @@ def check_snaps_in_folder(folder_path, expected_files):
         If any expected file is missing.
     """
     missing = []
-
+    
     for fname in expected_files:
         full_path = os.path.join(folder_path, fname)
         if not os.path.isfile(full_path):
