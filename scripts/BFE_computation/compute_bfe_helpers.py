@@ -10,8 +10,7 @@ def setup_logger(logfile="bfe_computation.log"):
         filemode="w",                     # overwrite each run; use "a" to append
         format="%(asctime)s [%(levelname)s] %(message)s",
         level=logging.INFO                # or DEBUG for more detail
-    )
-    
+    ) 
 
 def read_simulations_files(sims_file_path, suite, component, quantity):
     """
@@ -118,7 +117,7 @@ def load_config_file(config_path):
 
     return config
 
-def load_basis(basis_path, component, suite):
+def load_exp_basis(sim_files, basis_path, component, suite, variance=False):
     """
     Load a basis configuration from a YAML file and initialize a Basis object.
 
@@ -139,13 +138,20 @@ def load_basis(basis_path, component, suite):
         If the specified YAML file does not exist.
     """
 
-    basis_file = read_simulations_files(basis_path, suite, component, quantity="basis")
-    if not os.path.exists(basis_file):
-        raise FileNotFoundError(f"Basis file not found: {halo_basis_yaml}")
+    basis_name = read_simulations_files(sim_files, suite, component, quantity="basis")
+    basis_file = os.path.join(basis_path, basis_name) 
+    if not os.path.isfile(basis_file):
+        raise FileNotFoundError("Basis file not found: {}".format(basis_file))
 
     with open(basis_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     # Build basis from configuration
     basis = pyEXP.basis.Basis.factory(config)
+
+    if variance == True:
+        logging.info("Enabling coefficients variance computation")
+        basis.enableCoefCovarince(True, 100)
+    elif type(variance) != bool:
+        loggin.error("variance must be a boolean")
     return basis

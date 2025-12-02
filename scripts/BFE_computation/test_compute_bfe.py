@@ -1,7 +1,14 @@
 import yaml
 import pytest
 from compute_bfe_helpers import load_config_file
+from ios_nbody_sims import LoadSim
 
+def test_load_snap_time():
+    SNAPSHOT_DIR = "/n/nyx3/garavito/XMC-Atlas-sims/GC21/MW/out/"
+    SNAP_NAME = "MW_100M_beta1_vir_OM3_G4_150.hdf5"
+    sim = LoadSim(SNAPSHOT_DIR, SNAP_NAME)
+    time = sim.load_snap_time()
+    assert time == 150*0.02
 
 def test_load_config(tmp_path):
     # -------------------------------------------------------------

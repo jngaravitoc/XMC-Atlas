@@ -17,7 +17,7 @@ import pyEXP
 from ios_nbody_sims import LoadSim, check_snaps_in_folder
 from compute_bfe_helpers import (
     read_simulations_files,
-    load_basis, 
+    load_exp_basis, 
     load_config_file,
     setup_logger,
 )
@@ -43,7 +43,7 @@ def sample_snapshots(initial_snap, final_snap, nsnaps_to_compute_exp):
     logging.info("Computing coefficients in {} snapshots".format(nsnaps_sample))
     return snaps_to_compute_exp
 
-def load_GC21_exp_center(nsnap, component, suite, return_vel=False ):
+def load_GC21_exp_center(origin_dir, nsnap, component, suite, return_vel=False ):
     """
     Loads the center of the GC21 simulations
 
@@ -72,9 +72,13 @@ def load_GC21_exp_center(nsnap, component, suite, return_vel=False ):
     #sim = match.group(1)
 
     center_file = read_simulations_files(simulation_files, suite, component, quantity='expansion_center')
-    # TODO this should be in the params file 
-    density_center = np.loadtxt("/n/nyx3/garavito/projects/XMC-Atlas/scripts/output/MW/"+center_file)[nsnap,0:3]
+    # TODO this should be in the params file
+    origin_file = os.path.join(origin_dir, center_file)
+    if not os.path.isfile(origin_file):
+        raise FileNotFoundError(f"> Origins file not found in {origin_file}")
 
+    density_center = np.loadtxt(origin_file)[nsnap,0:3]
+    
     if return_vel == True:
         velocity_center = np.loadtxt(center_file)[nsnap,3:6]
         return density_center, velocity_center
@@ -82,7 +86,7 @@ def load_GC21_exp_center(nsnap, component, suite, return_vel=False ):
         return density_center
 
 
-def recentering(particle_data, nsnap, component, suite):
+def recentering(origin_dir, particle_data, nsnap, component, suite):
     """
     Recenters particle data
 
@@ -96,12 +100,12 @@ def recentering(particle_data, nsnap, component, suite):
     TODO: adds velocity center if needed!
     """
     # Load expansion centers
-    expansion_center = load_GC21_exp_center(nsnap, component, suite)
+    expansion_center = load_GC21_exp_center(origin_dir, nsnap, component, suite)
     particle_data['pos'] = particle_data['pos'] -  expansion_center 
     return particle_data
 
 # TODO move this function to bfe_computation_helper.py
-def load_particle_data(expansion_center, component, suite, nsnap, **kwargs):
+def load_particle_data(origin_dir, component, suite, nsnap, **kwargs):
     """
     Load particle data
 
@@ -113,7 +117,7 @@ def load_particle_data(expansion_center, component, suite, nsnap, **kwargs):
     snap_time:
     """
     full_snapname = snapname + "_{:03d}.hdf5".format(nsnap)
-    load_data = LoadSim(snapshot_dir, full_snapname, expansion_center, suite)
+    load_data = LoadSim(snapshot_dir, full_snapname)
     # Load center
     print("--------------------------------")
     if component=='MWHaloiso':
@@ -134,7 +138,7 @@ def load_particle_data(expansion_center, component, suite, nsnap, **kwargs):
     logging.info("Done loading snapshot")
     
     # TODO check: are we passing here nsnap too?
-    particle_data = recentering(particle_data, nsnap, component, suite)
+    particle_data = recentering(origin_dir, particle_data, nsnap, component, suite)
     logging.info("Done re-centering data")
     # TODO does this need to be done here?
     snap_times = load_data.load_snap_time() 
@@ -260,6 +264,7 @@ def main(config_file, suite):
     snapshot_dir = cfg["paths"]["snapshot_dir"]
     output_dir = cfg["paths"]["output_dir"]
     coefs_file = cfg["paths"]["coefficients_filename"]
+    origin_dir = cfg["paths"]["origins_dir"]
     # Simulations parameters
     snapname = cfg["simulations"]["snapname"]
     component = cfg["simulations"]["component"]
@@ -275,6 +280,7 @@ def main(config_file, suite):
         basis_paths = cfg["exp"]["basis_paths"]
         unit_system= cfg["exp"]["units_system"]
         compute_variance = cfg["exp"]["compute_bfe_variance"]
+        os.path.isdir(basis_paths)
     
     elif cfg["expansion_type"] == "AGAMA":
         rmax_exp = cfg["agama"]["rmax_exp"]
@@ -283,6 +289,7 @@ def main(config_file, suite):
         sym = cfg["agama"]["sym"]
 
     # Check that coefficients file exist
+    os.path.isdir(snapshot_dir)
     check_coefficients_path(output_dir)
     
     log_name = f"{output_dir}exp_expansion_{snapname}.log"
@@ -305,33 +312,29 @@ def main(config_file, suite):
     check_snaps_in_folder(snapshot_dir, all_snapnames)
 
     logging.info(f"> All snapshots found in {snapshot_dir}")
-    sys.exit()
-    
+   
     # EXP 
     if expansion_type=='EXP':
         # Move to directory conteining basis files
         os.chdir(basis_paths)
         # Load basis
         # Basis_file_name_path
-        basis = load_basis(simulation_files, component, suite) 
-        if compute_variance:
-            # TODO: what is the 100 for?
-            basis.enableCoefCovariance(True, 100)
-            logging.info("Enabling variance computation")
-            
-        loggin.info("-> Done loading basis")
+        basis = load_exp_basis(simulation_files, basis_paths, component, suite, compute_variance) 
+        logging.info("-> Done loading basis")
         # Compute coefficients
-        for n in range(initial_snap, final_snap+1):
-             
-            particle_data, snap_time = load_particle_data(
-                expansion_center, 
+
+        
+        for snap in snaps_to_compute_exp:
+            particle_data, snap_time = load_particle_data(   
+                origin_dir,
                 component, 
                 suite,
-                nsnap=n,
+                nsnap=snap,
                 npart=npart,
                 )
             logging.info("Done loading particle data")
 
+            sys.exit()
             # Define unit system
             compute_exp_coefs(
                 particle_data, 
