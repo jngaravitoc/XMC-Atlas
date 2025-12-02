@@ -1,0 +1,30 @@
+# config.yaml
+# Directory paths make sure they end up in /
+paths: 
+  snapshot_dir: "/n/nyx3/garavito/XMC-Atlas-sims/GC21/MW/out/"
+  output_dir: "/n/nyx3/garavito/projects/XMC-Atlas/GC21/coefficients/" 
+  coefficients_filename: "test_coefs_GC21_MWLMC5_DM_halo_10_8_wunits.h5" 
+  expansion_center_dir: "/n/nyx3/garavito/projects/XMC-Atlas/scripts/output/MW/"
+
+# Simulation details
+simulations:
+  snapname: MW_100M_beta1_vir_OM3_G4
+  component: MWHaloiso
+  initial_snap: 0
+  final_snap: 1
+  # if null it will compute the expansion in all the snapshots
+  nsnaps_to_compute_exp: null
+  npart_per_snapshot: 1000000
+  exp_center: /n/nyx3/garavito/projects/XMC-Atlas/scripts/output/MW/
+
+exp: 
+  basis_paths: /n/nyx3/garavito/projects/XMC-Atlas/GC21/basis/
+  compute_bfe_variance: false
+  units: "gadget" 
+
+agama:
+  rmax_exp: null
+  rmax_sel: null
+  pole_l: null
+  sym: null
+
