@@ -4,6 +4,7 @@ import datetime
 import time
 import logging
 import yaml
+import numpy as np
 
 # Local libraries
 from ios_nbody_sims import load_particle_data
@@ -14,6 +15,7 @@ from compute_bfe_helpers import (
     sample_snapshots,
     check_snaps_in_folder,
     load_exp_basis,
+    load_GC21_exp_center,
 )
 
 def setup_logger(logfile="bfe_computation.log"):

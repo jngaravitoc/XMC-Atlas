@@ -2,6 +2,7 @@ import os
 import csv
 import logging
 import yaml
+import numpy as np
 import pyEXP
 
 def check_snaps_in_folder(folder_path, expected_files):
