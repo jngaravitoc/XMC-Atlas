@@ -1,0 +1,2 @@
+suite,component,basis,expansion_center
+GC21,MWHaloiso,GC21_MW_DM_halo_10_8.yaml,MW_beta1_com_smooth.txt

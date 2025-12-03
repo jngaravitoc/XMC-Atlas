@@ -3,7 +3,7 @@
 paths: 
   snapshot_dir: "/n/nyx3/garavito/XMC-Atlas-sims/GC21/MW/out/"
   output_dir: "/n/nyx3/garavito/projects/XMC-Atlas/scripts/BFE_computation/test_files/" 
-  coefficients_filename: "test_exp_coefficients_wunits_and_variance.h5" 
+  coefficients_filename: "test_exp_coefficients_wunits.h5" 
   origins_dir: "/n/nyx3/garavito/projects/XMC-Atlas/scripts/output/MW/"
 # Simulation details
 simulations:
