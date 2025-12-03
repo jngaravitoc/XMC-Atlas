@@ -4,13 +4,96 @@ import yaml
 import pyEXP
 import logging
 
-def setup_logger(logfile="bfe_computation.log"):
-    logging.basicConfig(
-        filename=logfile,
-        filemode="w",                     # overwrite each run; use "a" to append
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        level=logging.INFO                # or DEBUG for more detail
-    ) 
+ 
+def check_snaps_in_folder(folder_path, expected_files):
+    """
+    Check that all expected snapshots exist inside a folder.
+
+    Parameters
+    ----------
+    folder_path : str or Path
+        Path to the directory to check.
+    expected_files : list of str
+        Filenames expected to appear in the folder (exact matches).
+
+    Returns
+    -------
+    missing_files : list of str
+        Files that were expected but not found.
+
+    Raises
+    ------
+    FileNotFoundError
+        If any expected file is missing.
+    """
+    missing = []
+    
+    for fname in expected_files:
+        full_path = os.path.join(folder_path, fname)
+        if not os.path.isfile(full_path):
+            missing.append(fname)
+
+    if missing:
+        raise FileNotFoundError(
+            f"The following files are missing in {folder_path}:\n{missing}"
+        )
+
+    return True
+
+def check_coefficients_path(outpath):
+    if os.path.isdir(outpath):
+        logging.info(f"> Coefficients {outpath} folder exists")
+    else:
+        logging.info(f"> Creating coefficients folder in: {outpath}")
+        os.makedirs(outpath, exist_ok=True)
+
+def sample_snapshots(initial_snap, final_snap, nsnaps_to_compute_exp):
+    snaps_to_compute_exp = np.arange(initial_snap, final_snap+1, 1, dtype=int)
+    nsnaps = len(snaps_to_compute_exp)
+
+    assert snaps_to_compute_exp[0] == initial_snap
+    assert snaps_to_compute_exp[-1] == final_snap
+    if nsnaps_to_compute_exp:
+        nsample = round(nsnaps / nsnaps_to_compute_exp)
+        snaps_to_compute_exp = snaps_to_compute_exp[::nsample]
+    
+    nsnaps_sample = len(snaps_to_compute_exp)
+    logging.info("Computing coefficients in {} snapshots".format(nsnaps_sample))
+    return snaps_to_compute_exp
+
+def load_GC21_exp_center(origin_dir, nsnap, component, suite, return_vel=False ):
+    """
+    Loads the center of the GC21 simulations
+
+    Paramters:
+    ----------
+    centers_parh : str
+        filename with the centers.
+
+    Returns:
+    --------
+    
+    halo_com_pos : np.ndarray, shape (3,N)
+    halo_com_vel : np.ndarray, shape (3,N) (optional)
+
+    TODO: This could be skipped by loading once the snapshots and caching the orbit to avoid
+    reading at every snapshot.
+    
+    """
+    
+    center_file = read_simulations_files(simulation_files, suite, component, quantity='expansion_center')
+    origin_file = os.path.join(origin_dir, center_file)
+    if not os.path.isfile(origin_file):
+        raise FileNotFoundError(f"> Origins file not found in {origin_file}")
+
+    density_center = np.loadtxt(origin_file)[nsnap,0:3]
+    
+    if return_vel == True:
+        velocity_center = np.loadtxt(center_file)[nsnap,3:6]
+        return density_center, velocity_center
+    else:
+        return density_center
+
 
 def read_simulations_files(sims_file_path, suite, component, quantity):
     """
@@ -44,78 +127,6 @@ def read_simulations_files(sims_file_path, suite, component, quantity):
                 return row[quantity].strip()
 
     raise ValueError(f"No entry found for suite='{suite}' and component='{component}'.")
-
-def load_config_file(config_file):
-    """
-    Load YAML configuration parameters.
-    
-    Paramters:
-    ----------
-
-    config_file : str
-        yaml file name
-
-    Returns:
-    --------
-    
-    dictionary
-
-    """
-    with open(config_file, 'r') as f:
-        return yaml.safe_load(f)
-
-def load_config_file(config_path):
-    """
-    Load and parse the configuration YAML file.
-
-    Parameters
-    ----------
-    config_path : str or Path
-        Path to the YAML configuration file.
-
-    Returns
-    -------
-    dict
-        A dictionary containing all YAML entries, plus an additional key
-        `expansion_type` which can be either "EXP" or "AGAMA" depending on
-        which block (`exp` or `agama`) is non-null in the YAML file.
-
-        If both `exp` and `agama` are provided, "EXP" takes precedence.
-        If both are null, `expansion_type` will be None.
-
-    Notes
-    -----
-    The YAML file is expected to contain the sections:
-    - "paths"
-    - "simulations"
-    - "exp"
-    - "agama"
-
-    The function determines `expansion_type` as follows:
-    - If the `exp` section is not null → "EXP"
-    - Else if the `agama` section is not null → "AGAMA"
-    - Else → None
-    """
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-
-    with open(config_path, "r") as f:
-        config = yaml.safe_load(f)
-
-    # Determine expansion type
-    exp_block = config.get("exp")
-    agama_block = config.get("agama")
-
-    if exp_block is not None:
-        expansion_type = "EXP"
-    elif agama_block is not None:
-        expansion_type = "AGAMA"
-    else:
-        expansion_type = None
-
-    config["expansion_type"] = expansion_type
-
-    return config
 
 def load_exp_basis(sim_files, basis_path, component, suite, variance=False):
     """

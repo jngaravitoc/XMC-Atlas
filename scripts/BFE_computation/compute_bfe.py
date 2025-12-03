@@ -1,5 +1,3 @@
-# computes EXP coefficients for the XMC-Atlas
-
 import os
 import sys
 import re
@@ -14,214 +12,87 @@ import nba
 import pyEXP
 
 # Local libraries
-from ios_nbody_sims import LoadSim, check_snaps_in_folder
+from ios_nbody_sims import LoadSim
 from exp_coefficients import compute_exp_coefs
+from agama_coefficients import compute_agama_coefs
 from compute_bfe_helpers import (
+    check_coefficients_path
+    sample_snapshots,
+    check_snaps_in_folder,
     read_simulations_files,
-    load_exp_basis, 
-    load_config_file,
-    setup_logger,
+    load_exp_basis,
 )
 
-def check_coefficients_path(outpath):
-    if os.path.isdir(outpath):
-        logging.info(f"> Coefficients {outpath} folder exists")
-    else:
-        logging.info(f"> Creating coefficients folder in: {outpath}")
-        os.makedirs(outpath, exist_ok=True)
+def setup_logger(logfile="bfe_computation.log"):
+    logging.basicConfig(
+        filename=logfile,
+        filemode="w",                     # overwrite each run; use "a" to append
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        level=logging.INFO                # or DEBUG for more detail
+    ) 
 
-def sample_snapshots(initial_snap, final_snap, nsnaps_to_compute_exp):
-    snaps_to_compute_exp = np.arange(initial_snap, final_snap+1, 1, dtype=int)
-    nsnaps = len(snaps_to_compute_exp)
-
-    assert snaps_to_compute_exp[0] == initial_snap
-    assert snaps_to_compute_exp[-1] == final_snap
-    if nsnaps_to_compute_exp:
-        nsample = round(nsnaps / nsnaps_to_compute_exp)
-        snaps_to_compute_exp = snaps_to_compute_exp[::nsample]
-    
-    nsnaps_sample = len(snaps_to_compute_exp)
-    logging.info("Computing coefficients in {} snapshots".format(nsnaps_sample))
-    return snaps_to_compute_exp
-
-def load_GC21_exp_center(origin_dir, nsnap, component, suite, return_vel=False ):
-    """
-    Loads the center of the GC21 simulations
-
-    Paramters:
-    ----------
-    centers_parh : str
-        filename with the centers.
-
-    Returns:
-    --------
-    
-    halo_com_pos : np.ndarray, shape (3,N)
-    halo_com_vel : np.ndarray, shape (3,N) (optional)
-
-    TODO: This could be skipped by loading once the snapshots and caching the orbit to avoid
-    reading at every snapshot.
-    
-    """
-    
-    #tag = re.sub(r"_\d+\.hdf5$", "", str(snapname))
-    #print(tag, snapname)
-    #nsnap = int(re.search(r'_(\d+)\.hdf5$', snapname).group(1))
-    
-    # Identify LMC model
-    #match = re.match(r"^([A-Za-z0-9]+)_", snapname)
-    #sim = match.group(1)
-
-    center_file = read_simulations_files(simulation_files, suite, component, quantity='expansion_center')
-    # TODO this should be in the params file
-    origin_file = os.path.join(origin_dir, center_file)
-    if not os.path.isfile(origin_file):
-        raise FileNotFoundError(f"> Origins file not found in {origin_file}")
-
-    density_center = np.loadtxt(origin_file)[nsnap,0:3]
-    
-    if return_vel == True:
-        velocity_center = np.loadtxt(center_file)[nsnap,3:6]
-        return density_center, velocity_center
-    else:
-        return density_center
-
-
-def recentering(origin_dir, particle_data, nsnap, component, suite):
-    """
-    Recenters particle data
-
-    Parameters:
-    -----------
-    particle data : np.ndarray, shape (N, 3)
-    snapname : str
-        string with the snapshot name
-    density_center : np.ndarray, shape (3)
-
-    TODO: adds velocity center if needed!
-    """
-    # Load expansion centers
-    expansion_center = load_GC21_exp_center(origin_dir, nsnap, component, suite)
-    particle_data['pos'] = particle_data['pos'] -  expansion_center 
-    return particle_data
-
-# TODO move this function to bfe_computation_helper.py
-def load_particle_data(origin_dir, component, suite, nsnap, **kwargs):
-    """
-    Load particle data
-
-    Returns:
-    --------
-
-    Particle data:
-
-    snap_time:
-    """
-    full_snapname = snapname + "_{:03d}.hdf5".format(nsnap)
-    load_data = LoadSim(snapshot_dir, full_snapname)
-    # Load center
-    print("--------------------------------")
-    if component=='MWHaloiso':
-        particle_data = load_data.load_halo('MWnoLMC', **kwargs)
-    
-    elif component=='MWHalo':
-        particle_data = load_data.load_halo('MW', **kwargs)
-    
-    elif component=='LMChalo':
-        particle_data = load_data.load_halo('LMC', **kwargs)
-     
-    elif component=='MWdisk':
-        particle_data = load_data.load_mw_disk(**kwargs)
-    
-    elif component=='MWbulge':
-        particle_data = load_data.load_mw_bulge(**kwargs)
-
-    logging.info("Done loading snapshot")
-    
-    # TODO check: are we passing here nsnap too?
-    particle_data = recentering(origin_dir, particle_data, nsnap, component, suite)
-    logging.info("Done re-centering data")
-    # TODO does this need to be done here?
-    snap_times = load_data.load_snap_time() 
-    logging.info("Done loading snap-time data")
-
-    return particle_data, snap_times
-
-def compute_agama_coefs(snapshot_dir, snapname, expansion_center, npart, dt, runtime_log):
-    import agama
-    from agama_external_sims import create_GizmoLike_snapshot, fit_potential
-    #pos, mass, nsnap  = load_mwhalo(snapname, snapshot_dir, npart)
-    #pos, mass, nsnap  = load_snapshot(snapname, snapshot_dir, outpath, npart)
- 
-    halo_data = LoadSim(snapshot_dir, snapname, expansion_center, suite)
-    mw_halo_particles = halo_data.load_halo(halo='MW', quantities=['pos', 'vel', 'mass'], npart=npart)
-    # Load center
-    pos_center, vel_center, nsnap = load_center(snapname, expansion_center)
-    mwhalo_recenter = nba.com.CenterHalo(mw_halo_particles)
-    mwhalo_recenter.recenter(pos_center, [0,0,0])    
-
-    mw_disk_particles = halo_data.load_mw_disk(quantities=['pos', 'vel', 'mass'])
-    mw_disk_recenter = nba.com.CenterHalo(mw_disk_particles)
-    mw_disk_recenter.recenter(pos_center, [0,0,0])    
-
-
-    sim_time = nsnap * dt # Gyrs # TODO get this from header! 
-    print(sim_time)
-    # re-center
-    
-    # Compute coefficients
-    start_time = time.time()
-    print(mw_halo_particles.keys())    
-
-    # build snapshot WITHOUT gas to demonstrate robustness when gas absent
-    
-    snapshot = create_GizmoLike_snapshot(
-        pos_dark=mw_halo_particles['pos'],
-        mass_dark=mw_halo_particles['mass'],
-        pos_star=mw_disk_particles['pos'],
-        mass_star=mw_disk_particles['mass'],
-        #pos_gas=np.ones((100, 3)),
-        #mass_gas=np.ones(100),
-        # temperature_gas=temperature_gas,
-    )
-
-    print("Running fit_potential on synthetic snapshot...")
-    t0 = time.perf_counter()
-    outputs = fit_potential(
-        snapshot,
-        nsnap=nsnap,
-        sym=["n"],
-        pole_l=[4],
-        rmax_sel=600.0,
-        rmax_exp=500.0,
-        save_dir="./demo_output",
-        file_ext="spline",
-        verbose=True,
-        halo='MW_iso_beta1',
-    )
-    dt = time.perf_counter() - t0
-
-    print("\nBenchmark complete.")
-    print(f"Elapsed time: {dt:.3f} s")
-    print("Generated files summary:")
-    for key, files in outputs.items():
-        print(f"  {key}: {len(files)} files")
-        for f in files[:3]:
             print(f"    - {f}")
         if len(files) > 3:
             print(f"    ... (+{len(files)-3} more)")
     print("Done.")
 
 
+def load_config_file(config_path):
+    """
+    Load and parse the configuration YAML file.
 
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    
-    print("*Done computing Agama coefficients")
+    Parameters
+    ----------
+    config_path : str or Path
+        Path to the YAML configuration file.
+
+    Returns
+    -------
+    dict
+        A dictionary containing all YAML entries, plus an additional key
+        `expansion_type` which can be either "EXP" or "AGAMA" depending on
+        which block (`exp` or `agama`) is non-null in the YAML file.
+
+        If both `exp` and `agama` are provided, "EXP" takes precedence.
+        If both are null, `expansion_type` will be None.
+
+    Notes
+    -----
+    The YAML file is expected to contain the sections:
+    - "paths"
+    - "simulations"
+    - "exp"
+    - "agama"
+
+    The function determines `expansion_type` as follows:
+    - If the `exp` section is not null → "EXP"
+    - Else if the `agama` section is not null → "AGAMA"
+    - Else → None
+    """
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
+
+    # Determine expansion type
+    exp_block = config.get("exp")
+    agama_block = config.get("agama")
+
+    if exp_block is not None:
+        expansion_type = "EXP"
+    elif agama_block is not None:
+        expansion_type = "AGAMA"
+    else:
+        expansion_type = None
+
+    config["expansion_type"] = expansion_type
+
+    return config
+
+
 
 def main(config_file, suite): 
-    #TODO: check that there are all these snapshots in the folder before starting BFE
-    #computation.
     global snapname
     global snapshot_dir
     global simulation_files

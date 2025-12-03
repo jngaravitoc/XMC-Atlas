@@ -1,43 +1,5 @@
-# TODO load bulge and disk particles
 import numpy as np
 import nba
-import os
-
-def check_snaps_in_folder(folder_path, expected_files):
-    """
-    Check that all expected snapshots exist inside a folder.
-
-    Parameters
-    ----------
-    folder_path : str or Path
-        Path to the directory to check.
-    expected_files : list of str
-        Filenames expected to appear in the folder (exact matches).
-
-    Returns
-    -------
-    missing_files : list of str
-        Files that were expected but not found.
-
-    Raises
-    ------
-    FileNotFoundError
-        If any expected file is missing.
-    """
-    missing = []
-    
-    for fname in expected_files:
-        full_path = os.path.join(folder_path, fname)
-        if not os.path.isfile(full_path):
-            missing.append(fname)
-
-    if missing:
-        raise FileNotFoundError(
-            f"The following files are missing in {folder_path}:\n{missing}"
-        )
-
-    return True
-
 
 class LoadSim:
     def __init__(self, snapshot_dir, snapname):
@@ -93,3 +55,62 @@ class LoadSim:
 
         return halo_data
 
+def recentering(origin_dir, particle_data, nsnap, component, suite):
+    """
+    Recenters particle data
+
+    Parameters:
+    -----------
+    particle data : np.ndarray, shape (N, 3)
+    snapname : str
+        string with the snapshot name 
+        density_center : np.ndarray, shape (3)
+
+    TODO: adds velocity center if needed!
+    """
+    # Load expansion centers
+    expansion_center = load_GC21_exp_center(origin_dir, nsnap, component, suite)
+    particle_data['pos'] = particle_data['pos'] -  expansion_center 
+    return particle_data
+
+# TODO move this function to bfe_computation_helper.py
+def load_particle_data(origin_dir, component, suite, nsnap, **kwargs):
+    """
+    Load particle data
+
+    Returns:
+    --------
+
+    Particle data:
+
+    snap_time:
+    """
+    full_snapname = snapname + "_{:03d}.hdf5".format(nsnap)
+    load_data = LoadSim(snapshot_dir, full_snapname)
+    # Load center
+    print("--------------------------------")
+    if component=='MWHaloiso':
+        particle_data = load_data.load_halo('MWnoLMC', **kwargs)
+    
+    elif component=='MWHalo':
+        particle_data = load_data.load_halo('MW', **kwargs)
+    
+    elif component=='LMChalo':
+        particle_data = load_data.load_halo('LMC', **kwargs)
+     
+    elif component=='MWdisk':
+        particle_data = load_data.load_mw_disk(**kwargs)
+    
+    elif component=='MWbulge':
+        particle_data = load_data.load_mw_bulge(**kwargs)
+
+    logging.info("Done loading snapshot")
+    
+    # TODO check: are we passing here nsnap too?
+    particle_data = recentering(origin_dir, particle_data, nsnap, component, suite)
+    logging.info("Done re-centering data")
+    # TODO does this need to be done here?
+    snap_times = load_data.load_snap_time() 
+    logging.info("Done loading snap-time data")
+
+    return particle_data, snap_times
