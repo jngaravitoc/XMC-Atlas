@@ -1,25 +1,18 @@
 import os
 import sys
-import re
 import datetime
 import time
 import logging
-import numpy as np
 import yaml
-import pynbody
-
-import nba
-import pyEXP
 
 # Local libraries
-from ios_nbody_sims import LoadSim
+from ios_nbody_sims import load_particle_data
 from exp_coefficients import compute_exp_coefs
 from agama_coefficients import compute_agama_coefs
 from compute_bfe_helpers import (
-    check_coefficients_path
+    check_coefficients_path,
     sample_snapshots,
     check_snaps_in_folder,
-    read_simulations_files,
     load_exp_basis,
 )
 
@@ -30,12 +23,6 @@ def setup_logger(logfile="bfe_computation.log"):
         format="%(asctime)s [%(levelname)s] %(message)s",
         level=logging.INFO                # or DEBUG for more detail
     ) 
-
-            print(f"    - {f}")
-        if len(files) > 3:
-            print(f"    ... (+{len(files)-3} more)")
-    print("Done.")
-
 
 def load_config_file(config_path):
     """
@@ -90,14 +77,19 @@ def load_config_file(config_path):
 
     return config
 
-
-
 def main(config_file, suite): 
+    """
+    Docstring for main
+    
+    :param config_file: Description
+    :param suite: Description
+    """
     global snapname
     global snapshot_dir
     global simulation_files
     global output_dir
     
+    # TODO describe all the config parameters in a markdown file
     # Load parameters
     cfg = load_config_file(config_file)
     snapshot_dir = cfg["paths"]["snapshot_dir"]
@@ -114,6 +106,7 @@ def main(config_file, suite):
     simulation_files = cfg["simulations"]["simulation_files"] 
 
     expansion_type = cfg["expansion_type"]
+
     # Expansion type
     if cfg["expansion_type"] == "EXP":
         basis_paths = cfg["exp"]["basis_paths"]
@@ -131,6 +124,7 @@ def main(config_file, suite):
     os.path.isdir(snapshot_dir)
     check_coefficients_path(output_dir)
     
+    # log outputs
     log_name = f"{output_dir}exp_expansion_{snapname}.log"
     print(f"> Log file created in: {log_name}")
     setup_logger(log_name)
@@ -139,20 +133,26 @@ def main(config_file, suite):
     logging.info("Expansion run with the following parameters:")
     logging.info(cfg)
     
-
     # Sample the snapshots in which the coefficients are going to be computed
+    # snaps_to_compute_exp is an array with the snapshots numbers to use. 
+    # e.g., it would be use as: snap_{snaps_to_compute_exp[0]}.hdf5
     snaps_to_compute_exp = sample_snapshots(initial_snap, final_snap, nsnaps_to_compute_exp)
     nsnaps = len(snaps_to_compute_exp)
 
-    # TODO check that all the snaps_to_compute_exp snapshots are in the folder
+    # Check that all the requested snaps_to_compute_exp snapshots are in the snapshot_dir folder
     all_snapnames = []
     for n in range(nsnaps):
         all_snapnames.append(snapname+ "_{:03d}.hdf5".format(snaps_to_compute_exp[n]))
     check_snaps_in_folder(snapshot_dir, all_snapnames)
 
     logging.info(f"> All snapshots found in {snapshot_dir}")
-   
-    # EXP 
+    
+    # Load centers here
+    centers = load_GC21_exp_center(origin_dir, simulation_files, suite, component, return_vel=False)
+    assert centers.shape[1] == 3, "centers array dimension has to be (nsnaps, 3)"
+    # assert centers shape
+    # For now the re-centering goes insice load_particle_data
+    # EXP
     if expansion_type=='EXP':
         # Move to directory conteining basis files
         os.chdir(basis_paths)
@@ -162,17 +162,24 @@ def main(config_file, suite):
         logging.info("-> Done loading basis")
         # Compute coefficients
 
-        
+        # TODO think how to make this part general to other readers
+        # TODO should the reader goes outside the EXP if statement. 
+        # Decide this ^^^ after doing the parallelization
         for snap in snaps_to_compute_exp:
-            particle_data, snap_time = load_particle_data(   
-                origin_dir,
+            # 
+            particle_data, snap_time = load_particle_data( 
+                snapshot_dir, 
+                snapname, 
                 component, 
-                suite,
                 nsnap=snap,
                 npart=npart,
                 )
             logging.info("Done loading particle data")
 
+            # Recentering
+            particle_data['pos'] -= centers[snap]
+            logging.info("Done re-centering data")
+            
             # Define unit system
             compute_exp_coefs(
                 particle_data, 
@@ -187,7 +194,9 @@ def main(config_file, suite):
 
 
     # AGAMA
+    
     elif expansion_type=='AGAMA':
+        raise NotImplementedError("AGAMA expansions are work in progress")
         for n in range(init_snap, final_snap+1):
             compute_agama_coefs(
                 snapshot_dir, 

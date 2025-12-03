@@ -1,10 +1,9 @@
 import os
 import csv
+import logging
 import yaml
 import pyEXP
-import logging
 
- 
 def check_snaps_in_folder(folder_path, expected_files):
     """
     Check that all expected snapshots exist inside a folder.
@@ -61,7 +60,7 @@ def sample_snapshots(initial_snap, final_snap, nsnaps_to_compute_exp):
     logging.info("Computing coefficients in {} snapshots".format(nsnaps_sample))
     return snaps_to_compute_exp
 
-def load_GC21_exp_center(origin_dir, nsnap, component, suite, return_vel=False ):
+def load_GC21_exp_center(origin_dir, simulation_filename, suite, component, return_vel=False ):
     """
     Loads the center of the GC21 simulations
 
@@ -81,19 +80,18 @@ def load_GC21_exp_center(origin_dir, nsnap, component, suite, return_vel=False )
     
     """
     
-    center_file = read_simulations_files(simulation_files, suite, component, quantity='expansion_center')
+    center_file = read_simulations_files(simulation_filename, suite, component, quantity='expansion_center')
     origin_file = os.path.join(origin_dir, center_file)
     if not os.path.isfile(origin_file):
         raise FileNotFoundError(f"> Origins file not found in {origin_file}")
 
-    density_center = np.loadtxt(origin_file)[nsnap,0:3]
+    density_center = np.loadtxt(origin_file)[:,0:3]
     
     if return_vel == True:
-        velocity_center = np.loadtxt(center_file)[nsnap,3:6]
+        velocity_center = np.loadtxt(center_file)[:,3:6]
         return density_center, velocity_center
     else:
         return density_center
-
 
 def read_simulations_files(sims_file_path, suite, component, quantity):
     """

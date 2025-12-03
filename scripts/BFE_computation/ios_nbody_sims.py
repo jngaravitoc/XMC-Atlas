@@ -1,5 +1,7 @@
+import logging
 import numpy as np
 import nba
+from compute_bfe_helpers import load_GC21_exp_center
 
 class LoadSim:
     def __init__(self, snapshot_dir, snapname):
@@ -7,7 +9,6 @@ class LoadSim:
         XMC-Atlas class to load particle data from simulations suites
         TODO: add doctring
         """
-
         self.snapshot_dir = snapshot_dir
         self.snapname = snapname
 
@@ -41,43 +42,29 @@ class LoadSim:
         elif halo == 'MWnoLMC':
             MWhalo = nba.ios.ReadGadgetSim(self.snapshot_dir, self.snapname)
             halo_data = MWhalo.read_snapshot(quantities, 'dm')
-            npart = len(halo_data['mass'])
+            all_npart = len(halo_data['mass'])
 
             # TODO implement this random sampling in NBA
-            if npart_rand:
-                npart_sample = npart_rand
-                sample_factor = npart / npart_sample
-                rand_part = np.random.randint(0, npart, npart_sample)
+            if npart:
+                sample_factor = all_npart / npart
+                rand_part = np.random.randint(0, all_npart, npart)
                 halo_data['pos'] = halo_data['pos'][rand_part]
                 halo_data['mass'] = halo_data['mass'][rand_part] * sample_factor
             
-            print("*Done loading {}".format(snapname))
+            print("*Done loading {}".format(self.snapname))
 
         return halo_data
 
-def recentering(origin_dir, particle_data, nsnap, component, suite):
-    """
-    Recenters particle data
-
-    Parameters:
-    -----------
-    particle data : np.ndarray, shape (N, 3)
-    snapname : str
-        string with the snapshot name 
-        density_center : np.ndarray, shape (3)
-
-    TODO: adds velocity center if needed!
-    """
-    # Load expansion centers
-    expansion_center = load_GC21_exp_center(origin_dir, nsnap, component, suite)
-    particle_data['pos'] = particle_data['pos'] -  expansion_center 
-    return particle_data
-
 # TODO move this function to bfe_computation_helper.py
-def load_particle_data(origin_dir, component, suite, nsnap, **kwargs):
+def load_particle_data(snapshot_dir, snapname, component, nsnap, **kwargs):
     """
     Load particle data
 
+    Params:
+
+    **kwargs:
+        npart : int
+            samples halo particles
     Returns:
     --------
 
@@ -103,12 +90,12 @@ def load_particle_data(origin_dir, component, suite, nsnap, **kwargs):
     
     elif component=='MWbulge':
         particle_data = load_data.load_mw_bulge(**kwargs)
+    else:
+        raise ValueError("Component not defined")
 
     logging.info("Done loading snapshot")
     
-    # TODO check: are we passing here nsnap too?
-    particle_data = recentering(origin_dir, particle_data, nsnap, component, suite)
-    logging.info("Done re-centering data")
+
     # TODO does this need to be done here?
     snap_times = load_data.load_snap_time() 
     logging.info("Done loading snap-time data")
