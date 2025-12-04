@@ -4,10 +4,12 @@ Build a basis expansion models
 """
 
 import os
+import sys
 import numpy as np
+from mpi4py import MPI
 import gala.potential as gp
 import pyEXP
-import EXPtools
+#import EXPtools
 
 
 # -------------------
@@ -24,7 +26,7 @@ CONFIG_NAME = f"config_GC21_MW_DM_halo_{NMAX}_{LMAX}.yaml"
 OUTPATH = "../../GC21/basis/"
 
 
-def main():
+def compute_halo_basis():
     """Main driver for building the halo basis expansion."""
     
     if not os.path.exists(POTENTIAL_NAME):
@@ -70,5 +72,41 @@ def main():
     print(f"Basis written to {OUTPATH+BASIS_NAME}")
 
 
+
+def compute_GC21_disk_basis():
+	size = MPI.COMM_WORLD.Get_size()
+	rank = MPI.COMM_WORLD.Get_rank()
+	name = MPI.Get_processor_name()
+	#sys.stdout.write(msg.format(rank, size, name))
+
+	# Make the disk basis config
+
+	disk_config = """
+	---
+	id: cylinder
+	parameters:                         
+	  acyl: 4.5                         # exponential disk scale length, Martin's suggestion
+	  hcyl: 0.9                         # exponential disk scale height
+	  lmaxfid: 64                       # maximum harmonic order for spherical basis
+	  nmaxfid: 64                       # maximum radial order for spherical basis
+	  mmax: 6                           # maximum azimuthal order of cylindrical basis
+	  nmax: 12                          # maximum radial order of cylindrical basis, Mk's suggestion
+	  ncylnx: 256                       # grid points in radial direction
+	  ncylny: 128                       # grid points in vertical direction
+	  ncylodd: 3                        # vertically anti-symmetric basis functions, Ma suggestion - nmax/2
+	  rnum: 200                         # radial quadrature knots for Gram matrix
+	  pnum: 0                           # azimuthal quadrature knots for Gram matrix
+	  tnum: 80                          # latitudinal quadrature knots for Gram matrix
+	  vflag: 0                          # verbose output flag
+	  logr: false                       # logarithmically spaced radial grid
+      ashift: 0                         # 
+	  cachename: test_GC21_mwdisk.cache.basis   # name of the basis cache file
+	...
+	"""
+	disk_basis = pyEXP.basis.Basis.factory(disk_config)
+
+
+
 if __name__ == "__main__":
-    main()
+    #compute_halo_basis()
+	compute_GC21_disk_basis()
