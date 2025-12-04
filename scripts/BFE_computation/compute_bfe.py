@@ -5,10 +5,11 @@ import time
 import logging
 import yaml
 import numpy as np
+import pyEXP
 
 # Local libraries
 from ios_nbody_sims import load_particle_data
-from exp_coefficients import compute_exp_coefs
+from exp_coefficients import compute_exp_coefs, compute_exp_coefs_parallel
 from agama_coefficients import compute_agama_coefs
 from compute_bfe_helpers import (
     check_coefficients_path,
@@ -152,36 +153,31 @@ def main(config_file, suite):
     # Load centers here
     centers = load_GC21_exp_center(origin_dir, simulation_files, suite, component, return_vel=False)
     assert centers.shape[1] == 3, "centers array dimension has to be (nsnaps, 3)"
-    # assert centers shape
-    # For now the re-centering goes insice load_particle_data
-    # EXP
+    
+    # Load basis only ones across snapshots
     if expansion_type=='EXP':
         # Move to directory conteining basis files
         os.chdir(basis_paths)
         # Load basis
-        # Basis_file_name_path
         basis = load_exp_basis(simulation_files, basis_paths, component, suite, compute_variance) 
         logging.info("-> Done loading basis")
-        # Compute coefficients
 
-        # TODO think how to make this part general to other readers
-        # TODO should the reader goes outside the EXP if statement. 
-        # Decide this ^^^ after doing the parallelization
-        for snap in snaps_to_compute_exp:
-            # 
-            particle_data, snap_time = load_particle_data( 
-                snapshot_dir, 
-                snapname, 
-                component, 
-                nsnap=snap,
-                npart=npart,
-                )
-            logging.info("Done loading particle data")
 
-            # Recentering
-            particle_data['pos'] -= centers[snap]
-            logging.info("Done re-centering data")
-            
+    for snap in snaps_to_compute_exp:
+        particle_data, snap_time = load_particle_data( 
+            snapshot_dir, 
+            snapname, 
+            component, 
+            nsnap=snap,
+            npart=npart,
+            )
+        logging.info("Done loading particle data")
+
+        # Recentering
+        particle_data['pos'] -= centers[snap]
+        logging.info("Done re-centering data")
+           
+        if expansion_type=='EXP':
             # Define unit system
             compute_exp_coefs(
                 particle_data, 
@@ -193,23 +189,21 @@ def main(config_file, suite):
 
             logging.info("Done computing coefficients")
             sys.exit()
-
-
     # AGAMA
-    
-    elif expansion_type=='AGAMA':
-        raise NotImplementedError("AGAMA expansions are work in progress")
-        for n in range(init_snap, final_snap+1):
-            compute_agama_coefs(
-                snapshot_dir, 
-                snapname+"_{:03d}.hdf5".format(n), 
-                orbit, 
-                npart, 
-                dt, 
-                runtime_log)
 
-    else: 
-        raise NotImplementedError("Only AGAMA and EXP expansions are implemented")
+        elif expansion_type=='AGAMA':
+            raise NotImplementedError("AGAMA expansions are work in progress")
+            for n in range(init_snap, final_snap+1):
+                compute_agama_coefs(
+                    snapshot_dir, 
+                    snapname+"_{:03d}.hdf5".format(n), 
+                    orbit, 
+                    npart, 
+                    dt, 
+                    runtime_log)
+
+        else: 
+            raise NotImplementedError("Only AGAMA and EXP expansions are implemented")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
