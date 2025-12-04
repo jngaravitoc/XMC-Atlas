@@ -11,6 +11,7 @@ import pyEXP
 from ios_nbody_sims import load_particle_data
 from exp_coefficients import compute_exp_coefs, compute_exp_coefs_parallel
 from agama_coefficients import compute_agama_coefs
+from expansion_units import setEXPunits, setAGAMAunits
 from compute_bfe_helpers import (
     check_coefficients_path,
     sample_snapshots,
@@ -109,6 +110,7 @@ def main(config_file, suite):
     simulation_files = cfg["simulations"]["simulation_files"] 
 
     expansion_type = cfg["expansion_type"]
+    
 
     # Expansion type
     if cfg["expansion_type"] == "EXP":
@@ -130,7 +132,7 @@ def main(config_file, suite):
     # log outputs
     log_name = f"{output_dir}exp_expansion_{snapname}.log"
     print(f"> Log file created in: {log_name}")
-    setup_logger(log_name)
+    setup_logger(output_dir + log_name)
     logging.info("Expansion created on:")
     logging.info(str(datetime.datetime.now()))
     logging.info("Expansion run with the following parameters:")
@@ -162,6 +164,14 @@ def main(config_file, suite):
         basis = load_exp_basis(simulation_files, basis_paths, component, suite, compute_variance) 
         logging.info("-> Done loading basis")
 
+         # Load unit system
+        exp_units = setEXPunits(unit_system)
+        print(exp_units)
+
+    elif expansion_type == 'AGAMA':
+
+         agama_units = setAGAMAunits(unit_system)
+
 
     for snap in snaps_to_compute_exp:
         particle_data, snap_time = load_particle_data( 
@@ -179,13 +189,13 @@ def main(config_file, suite):
            
         if expansion_type=='EXP':
             # Define unit system
-            compute_exp_coefs(
+            compute_exp_coefs_parallel(
                 particle_data, 
                 snap_time,
                 basis, 
                 component, 
-                coefs_file,
-                unit_system)
+                output_dir + coefs_file,
+                unit_system=exp_units)
 
             logging.info("Done computing coefficients")
             sys.exit()
@@ -193,14 +203,14 @@ def main(config_file, suite):
 
         elif expansion_type=='AGAMA':
             raise NotImplementedError("AGAMA expansions are work in progress")
-            for n in range(init_snap, final_snap+1):
-                compute_agama_coefs(
-                    snapshot_dir, 
-                    snapname+"_{:03d}.hdf5".format(n), 
-                    orbit, 
-                    npart, 
-                    dt, 
-                    runtime_log)
+            # Add units here too
+            compute_agama_coefs(
+                snapshot_dir, 
+                snapname+"_{:03d}.hdf5".format(n), 
+                orbit, 
+                npart, 
+                dt, 
+                runtime_log)
 
         else: 
             raise NotImplementedError("Only AGAMA and EXP expansions are implemented")
