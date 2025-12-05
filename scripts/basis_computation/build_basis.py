@@ -9,6 +9,7 @@ import numpy as np
 from mpi4py import MPI
 import gala.potential as gp
 import pyEXP
+import yaml
 #import EXPtools
 
 
@@ -21,10 +22,133 @@ NMAX = 10
 LMAX = 8
 N_RBINS = 400
 BASIS_NAME = f"GC21_MW_DM_halo_{NMAX}_{LMAX}.yaml"
+DISK_BASIS_NAME = f"GC21_MW_DM_halo_{NMAX}_{LMAX}.yaml"
 CACHE_NAME = f".cache_GC21_MW_DM_halo_{NMAX}_{LMAX}"
 CONFIG_NAME = f"config_GC21_MW_DM_halo_{NMAX}_{LMAX}.yaml"
 OUTPATH = "../../GC21/basis/"
 
+# copy-paste from EXPtools
+def write_basis(basis, basis_name):
+    """
+    Write a basis configuration dictionary to a YAML file.
+
+    Parameters
+    ----------
+    basis : dict
+        Dictionary containing the basis configuration.
+    conf_name : str
+        Name of the YAML file to write. If the provided name does not
+        end with `.yaml`, the extension is automatically appended.
+
+    Returns
+    -------
+    str
+        The final filename used to save the YAML configuration.
+    """
+    # Ensure file has .yaml extension
+    if not basis_name.endswith(".yaml"):
+        basis_name += ".yaml"
+
+    # Write to file
+    with open(basis_name, "w") as file:
+        yaml.dump(basis, file, default_flow_style=False, sort_keys=False)
+
+    return 0
+
+
+
+# copy-paste from EXPtools
+def make_config(basis_id, float_fmt_rmin="{:.7f}", float_fmt_rmax="{:.3f}",
+                float_fmt_rmapping="{:.3f}", **kwargs):
+    """
+    Create a YAML configuration file string for building a basis model.
+
+    Parameters
+    ----------
+    basis_id : str
+        Identifier of the basis model. Must be either 'sphereSL' or 'cylinder'.
+    float_fmt_rmin : str, optional
+        Format string for rmin (default ``"{:.7f}"``).
+    float_fmt_rmax : str, optional
+        Format string for rmax (default ``"{:.3f}"``).
+    float_fmt_rmapping : str, optional
+        Format string for rmapping (default ``"{:.3f}"``).
+    **kwargs : dict
+        Additional keyword arguments required depending on the basis type:
+
+        - For ``sphereSL``:
+          ['lmax', 'nmax', 'rmapping', 'modelname', 'cachename']
+
+        - For ``cylinder``:
+          ['acyl', 'hcyl', 'nmaxfid', 'lmaxfid', 'mmax', 'nmax',
+           'ncylodd', 'ncylnx', 'ncylny', 'rnum', 'pnum', 'tnum',
+           'vflag', 'logr', 'cachename']
+
+    Returns
+    -------
+    str
+        YAML configuration file contents.
+
+    Raises
+    ------
+    KeyError
+        If mandatory parameters for the given basis are missing.
+    FileNotFoundError
+        If ``modelname`` is required but cannot be opened.
+    ValueError
+        If the model file does not contain valid radius data.
+    """
+
+    #check_basis_params(basis_id, **kwargs)
+
+    if basis_id == "sphereSL":
+        modelname = kwargs["modelname"]
+        try:
+            R = np.loadtxt(modelname, skiprows=3, usecols=0)
+        except OSError as e:
+            raise FileNotFoundError(f"Could not open model file '{modelname}'") from e
+        if R.size == 0:
+            raise ValueError(f"Model file '{modelname}' contains no radius data")
+
+        rmin, rmax, numr = R[0], R[-1], len(R)
+
+        config_dict = {
+            "id": basis_id,
+            "parameters": {
+                "numr": int(numr),
+                "rmin": rmin,
+                "rmax": rmax,
+                "Lmax": int(kwargs["lmax"]),
+                "nmax": int(kwargs["nmax"]),
+                "rmapping": float(kwargs["rmapping"]),
+                "modelname": str(modelname),
+                "cachename": str(kwargs["cachename"]),
+            },
+        }
+
+    elif basis_id == "cylinder":
+        config_dict = {
+            "id": basis_id,
+            "parameters": {
+                "acyl": float(kwargs["acyl"]),
+                "hcyl": float(kwargs["hcyl"]),
+                "nmaxfid": int(kwargs["nmaxfid"]),
+                "lmaxfid": int(kwargs["lmaxfid"]),
+                "mmax": int(kwargs["mmax"]),
+                "nmax": int(kwargs["nmax"]),
+                "ncylodd": int(kwargs["ncylodd"]),
+                "ncylnx": int(kwargs["ncylnx"]),
+                "ncylny": int(kwargs["ncylny"]),
+                "rnum": int(kwargs["rnum"]),
+                "pnum": int(kwargs["pnum"]),
+                "tnum": int(kwargs["tnum"]),
+                "vflag": int(kwargs["vflag"]),
+                "logr": bool(kwargs["logr"]),
+                "cachename": str(kwargs["cachename"]),
+            },
+        }
+
+    return yaml.dump(config_dict, sort_keys=False)
 
 def compute_halo_basis():
     """Main driver for building the halo basis expansion."""
@@ -73,40 +197,15 @@ def compute_halo_basis():
 
 
 
-def compute_GC21_disk_basis():
-	size = MPI.COMM_WORLD.Get_size()
-	rank = MPI.COMM_WORLD.Get_rank()
-	name = MPI.Get_processor_name()
-	#sys.stdout.write(msg.format(rank, size, name))
-
-	# Make the disk basis config
-
-	disk_config = """
-	---
-	id: cylinder
-	parameters:                         
-	  acyl: 4.5                         # exponential disk scale length, Martin's suggestion
-	  hcyl: 0.9                         # exponential disk scale height
-	  lmaxfid: 64                       # maximum harmonic order for spherical basis
-	  nmaxfid: 64                       # maximum radial order for spherical basis
-	  mmax: 6                           # maximum azimuthal order of cylindrical basis
-	  nmax: 12                          # maximum radial order of cylindrical basis, Mk's suggestion
-	  ncylnx: 256                       # grid points in radial direction
-	  ncylny: 128                       # grid points in vertical direction
-	  ncylodd: 3                        # vertically anti-symmetric basis functions, Ma suggestion - nmax/2
-	  rnum: 200                         # radial quadrature knots for Gram matrix
-	  pnum: 0                           # azimuthal quadrature knots for Gram matrix
-	  tnum: 80                          # latitudinal quadrature knots for Gram matrix
-	  vflag: 0                          # verbose output flag
-	  logr: false                       # logarithmically spaced radial grid
-      ashift: 0                         # 
-	  cachename: test_GC21_mwdisk.cache.basis   # name of the basis cache file
-	...
-	"""
-	disk_basis = pyEXP.basis.Basis.factory(disk_config)
 
 
 
 if __name__ == "__main__":
     #compute_halo_basis()
-	compute_GC21_disk_basis()
+	#compute_GC21_disk_basis()
+	basis_cache="mwiso_disk.cache.basis"
+
+	disk_conf = make_config('cylinder', acyl=3.5,hcyl=0.9,nmaxfid=64, lmaxfid=64, mmax=0,nmax=24,
+		ncylodd=3,ncylnx=256,ncylny=128,rnum=200,pnum=0, tnum=0,vflag=0,logr="false",cachename=basis_cache)
+
+	write_basis(disk_conf, 'mwdisk_GC21_basis.yaml')	

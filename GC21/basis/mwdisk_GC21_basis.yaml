@@ -1,0 +1,3 @@
+"id: cylinder\nparameters:\n  acyl: 3.5\n  hcyl: 0.9\n  nmaxfid: 64\n  lmaxfid: 64\n\
+  \  mmax: 0\n  nmax: 24\n  ncylodd: 3\n  ncylnx: 256\n  ncylny: 128\n  rnum: 200\n\
+  \  pnum: 0\n  tnum: 0\n  vflag: 0\n  logr: true\n  cachename: mwiso_disk.cache.basis\n"
