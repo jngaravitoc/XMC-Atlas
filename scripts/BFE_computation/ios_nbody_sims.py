@@ -1,58 +1,73 @@
 import logging
 import numpy as np
-import nba
 from compute_bfe_helpers import load_GC21_exp_center
+import nba
+
 
 class LoadSim:
+	"""
+    Class for loading particle data from XMC-Atlas simulation snapshots.
+    """
     def __init__(self, snapshot_dir, snapname):
         """
-        XMC-Atlas class to load particle data from simulations suites
-        TODO: add doctrings
+        Parameters
+        ----------
+        snapshot_dir : str
+            Path to the snapshot directory.
+        snapname : str
+            Snapshot file name.
+	
         TODO: Downsampling will increase the mass of the particles, this should be represented 
         in the unit value for the mass.
         """
         self.snapshot_dir = snapshot_dir
         self.snapname = snapname
+        self.GC21 = nba.ios.ReadGC21(self.snapshot_dir, self.snapname)
+        self.gadget = nba.ios.ReadGadgetSim(self.snapshot_dir, self.snapname)
 
     def load_snap_time(self):
-        sim = nba.ios.ReadGadgetSim(self.snapshot_dir, self.snapname)
-        snap_time = sim.read_header()['Time']
+        snap_time = self.gadget.read_header()['Time']
         return snap_time
 
-    def load_mw_bulge(self, quantities=['pos', 'mass']):
-        GC21_bulge = nba.ios.ReadGC21(self.snapshot_dir, self.snapname)
-        bulge_data = GC21_bulge.read_halo(quantities, halo='MW', ptype='bulge')
+    def load_mw_bulge(self, quantities=None):
+        if quantities is None:
+            quantities = ['pos', 'mass']
+        bulge_data = self.GC21.read_halo(quantities, halo='MW', ptype='bulge')
         return bulge_data
         
-    def load_mw_disk(self, quantities=['pos', 'mass']):
-        GC21_disk = nba.ios.ReadGC21(self.snapshot_dir, self.snapname)
-        disk_data = GC21_disk.read_halo(quantities, halo='MW', ptype='disk')
+    def load_mw_disk(self, quantities=None):
+        if quantities is None:
+            quantities = ['pos', 'mass']
+        disk_data = self.GC21.read_halo(quantities, halo='MW', ptype='disk')
         return disk_data
 
-    def load_halo(self, halo,  quantities=['pos', 'mass'], npart=None):
+    def load_halo(self, halo,  quantities=None, npart=None):
         """
         halo : str
             halo to which load the data
         """
-        if halo == 'MW' or'LMC':
-            GC21_halo = nba.ios.ReadGC21(self.snapshot_dir, self.snapname)
+        if quantities is None:
+            quantities = ['pos', 'mass']
+
+        if halo == in ('MW', 'LMC'):
             if npart:
-                halo_data = GC21_halo.read_halo(quantities, halo='MW', ptype='dm', randomsample=npart)
+                halo_data = self.GC21.read_halo(quantities, halo=halo, ptype='dm', randomsample=npart)
             else:   
-                halo_data = GC21_halo.read_halo(quantities, halo='MW', ptype='dm')
+                halo_data = self.GC21.read_halo(quantities, halo=halo, ptype='dm')
 
         elif halo == 'MWnoLMC':
-            MWhalo = nba.ios.ReadGadgetSim(self.snapshot_dir, self.snapname)
-            halo_data = MWhalo.read_snapshot(quantities, 'dm')
+            halo_data = self.gadget.read_snapshot(quantities, 'dm')
             all_npart = len(halo_data['mass'])
 
             # TODO implement this random sampling in NBA
             if npart:
                 sample_factor = all_npart / npart
-                rand_part = np.random.randint(0, all_npart, npart)
+                rand_part = np.random.choice(all_npart, size=npart, replace=False)
                 halo_data['pos'] = halo_data['pos'][rand_part]
                 halo_data['mass'] = halo_data['mass'][rand_part] * sample_factor
             
+        else:
+            raise ValueError(f"Unsupported halo type: {halo}")
 
         return halo_data
 
