@@ -20,7 +20,10 @@ from compute_bfe_helpers import (
     load_GC21_exp_center,
 )
 
-def setup_logger(logfile="bfe_computation.log"):
+def setup_logger(logfile):
+    """
+    Set up the logfile
+    """
     logging.basicConfig(
         filename=logfile,
         filemode="w",                     # overwrite each run; use "a" to append
@@ -130,9 +133,9 @@ def main(config_file, suite):
     check_coefficients_path(output_dir)
     
     # log outputs
-    log_name = f"{output_dir}exp_expansion_{snapname}.log"
+    log_name = os.path.abspath(os.path.join(output_dir, f"exp_expansion_{snapname}.log"))
     print(f"> Log file created in: {log_name}")
-    setup_logger(output_dir + log_name)
+    setup_logger(log_name)
     logging.info("Expansion created on:")
     logging.info(str(datetime.datetime.now()))
     logging.info("Expansion run with the following parameters:")
@@ -152,16 +155,37 @@ def main(config_file, suite):
 
     logging.info(f"> All snapshots found in {snapshot_dir}")
     
+    if isinstance(component, str):
+        component = [component]
+
     # Load centers here
-    centers = load_GC21_exp_center(origin_dir, simulation_files, suite, component, return_vel=False)
-    assert centers.shape[1] == 3, "centers array dimension has to be (nsnaps, 3)"
+    centers = {}
+    for comp in component:
+        centers[comp] = load_GC21_exp_center(
+            origin_dir, 
+            simulation_files, 
+            suite, 
+            comp, 
+            return_vel=False)
+
+        assert centers[comp].shape[1] == 3, "centers array dimension has to be (nsnaps, 3)"
     
     # Load basis only ones across snapshots
     if expansion_type=='EXP':
         # Move to directory conteining basis files
         os.chdir(basis_paths)
+    
+        if isinstance(component, str):
+            component = [component]
         # Load basis
-        basis = load_exp_basis(simulation_files, basis_paths, component, suite, compute_variance) 
+        basis = {}
+        for comp in component:
+            basis[comp]= load_exp_basis(simulation_files, basis_paths, comp, suite, compute_variance) 
+            if comp == 'MWdisk':
+                assert basis[comp].getFieldType() == "cylinder"
+            else:
+                assert basis[comp].getFieldType() == "Spherical"
+
         logging.info("-> Done loading basis")
 
          # Load unit system
@@ -169,37 +193,38 @@ def main(config_file, suite):
         print(exp_units)
 
     elif expansion_type == 'AGAMA':
-
          agama_units = setAGAMAunits(unit_system)
 
-
     for snap in snaps_to_compute_exp:
-        particle_data, snap_time = load_particle_data( 
+        particle_data = load_particle_data( 
             snapshot_dir, 
             snapname, 
             component, 
             nsnap=snap,
             npart=npart,
             )
+        
+        print(snap, particle_data[component[0]]['snapshot_time'])
         logging.info("Done loading particle data")
 
         # Recentering
-        particle_data['pos'] -= centers[snap]
+        for comp in component:
+            particle_data[comp]['pos'] -= centers[comp][snap]
         logging.info("Done re-centering data")
-           
+                
         if expansion_type=='EXP':
             # Define unit system
-            compute_exp_coefs_parallel(
-                particle_data, 
-                snap_time,
-                basis, 
-                component, 
-                output_dir + coefs_file,
-                unit_system=exp_units)
+            for comp in component:
+                compute_exp_coefs_parallel(
+                    particle_data[comp],
+                    basis[comp], 
+                    comp, 
+                    output_dir + coefs_file,
+                    unit_system=exp_units)
 
-            logging.info("Done computing coefficients")
-            sys.exit()
+                logging.info("Done computing coefficients")
     # AGAMA
+        
 
         elif expansion_type=='AGAMA':
             raise NotImplementedError("AGAMA expansions are work in progress")

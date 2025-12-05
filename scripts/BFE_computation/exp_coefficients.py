@@ -33,8 +33,7 @@ def compute_exp_coefs(halo_data, snap_time, basis, component, coefs_file, unit_s
 
 
 def compute_exp_coefs_parallel(
-    halo_data,
-    snap_time,
+    particle_data,
     basis,
     component,
     coefs_file,
@@ -65,9 +64,9 @@ def compute_exp_coefs_parallel(
     # Coefficient construction (MPI-parallel inside C++)
     # --------------------------------------------------
     coef = basis.createFromArray(
-        halo_data["mass"],
-        halo_data["pos"],
-        snap_time,
+        particle_data["mass"],
+        particle_data["pos"],
+        time=particle_data["snapshot_time"],
     )
 
     if my_rank == 0:
@@ -102,8 +101,8 @@ def compute_exp_coefs_parallel(
     end_time = time.time()
 
     elapsed_time = end_time - start_time
-    nparticles = len(halo_data["mass"])
-
+    nparticles = len(particle_data["mass"])
+    snap_tome = particle_data["snapshot_time"]
     if my_rank == 0:
         logging.info(
             f"Coefficients for snapshot t={snap_time} "

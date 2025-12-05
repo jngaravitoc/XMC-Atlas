@@ -150,6 +150,7 @@ def load_exp_basis(sim_files, basis_path, component, suite, variance=False):
 
     basis_name = read_simulations_files(sim_files, suite, component, quantity="basis")
     basis_file = os.path.join(basis_path, basis_name) 
+
     if not os.path.isfile(basis_file):
         raise FileNotFoundError("Basis file not found: {}".format(basis_file))
 
@@ -164,4 +165,5 @@ def load_exp_basis(sim_files, basis_path, component, suite, variance=False):
         basis.enableCoefCovarince(True, 100)
     elif type(variance) != bool:
         loggin.error("variance must be a boolean")
+    
     return basis
