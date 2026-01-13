@@ -94,6 +94,20 @@ def load_GC21_exp_center(origin_dir, simulation_filename, suite, component, retu
     else:
         return density_center
 
+def load_sheng24_exp_center(origin_dir, centers_filename, sim_id, return_vel=False):
+    sim_params_file = os.path.join(origin_dir, centers_filename)
+    sim_params = np.loadtxt(sim_params_file, skiprows=1)
+    id_sim = sim_params[:,0].astype(int)
+    sim = np.where(id_sim == sim_id)
+    rmw = sim_params[sim,6:9][0]
+    vmw = sim_params[sim,9:12][0]
+    rlmc = sim_params[sim,12:15][0]
+    vlmc = sim_params[sim,15:18][0]
+    times = sim_params[sim,1][0]
+    return times, rmw, vmw, rlmc, vlmc
+
+
+
 def read_simulations_files(sims_file_path, suite, component, quantity):
     """
     Read a basis lookup table and return the basis filename matching suite & component.

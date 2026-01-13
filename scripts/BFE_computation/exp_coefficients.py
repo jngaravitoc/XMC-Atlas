@@ -63,6 +63,7 @@ def compute_exp_coefs_parallel(
     # --------------------------------------------------
     # Coefficient construction (MPI-parallel inside C++)
     # --------------------------------------------------
+
     coef = basis.createFromArray(
         particle_data["mass"],
         particle_data["pos"],
@@ -102,7 +103,7 @@ def compute_exp_coefs_parallel(
 
     elapsed_time = end_time - start_time
     nparticles = len(particle_data["mass"])
-    snap_tome = particle_data["snapshot_time"]
+    snap_time = particle_data["snapshot_time"]
     if my_rank == 0:
         logging.info(
             f"Coefficients for snapshot t={snap_time} "

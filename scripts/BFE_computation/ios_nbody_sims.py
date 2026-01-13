@@ -5,10 +5,10 @@ import nba
 
 
 class LoadSim:
-	"""
+    """
     Class for loading particle data from XMC-Atlas simulation snapshots.
     """
-    def __init__(self, snapshot_dir, snapname):
+    def __init__(self, snapshot_dir, snapname, suite):
         """
         Parameters
         ----------
@@ -16,29 +16,38 @@ class LoadSim:
             Path to the snapshot directory.
         snapname : str
             Snapshot file name.
+        suite : str
+            Suite name (Sheng24 or GC21)
 	
         TODO: Downsampling will increase the mass of the particles, this should be represented 
         in the unit value for the mass.
         """
         self.snapshot_dir = snapshot_dir
         self.snapname = snapname
-        self.GC21 = nba.ios.ReadGC21(self.snapshot_dir, self.snapname)
+        #self.GC21 = nba.ios.ReadGC21(self.snapshot_dir, self.snapname)
         self.gadget = nba.ios.ReadGadgetSim(self.snapshot_dir, self.snapname)
+        self.suite = suite
+        is suite == "GC21":
+            self.sim = nba.ios.ReadGC21(self.snapshot_dir, self.snapname)
+        elif suite == "Sheng24":
+            self.sim = nba.ios.ReadSheng24(self.snapshot_dir, self.snapname)
+        else:
+            raise ValueError "Requested suite not found please choose between Sheng24 or GC21"
 
     def load_snap_time(self):
         snap_time = self.gadget.read_header()['Time']
         return snap_time
 
-    def load_mw_bulge(self, quantities=None):
+    def load_mw_bulge(self, quantities=None, npart=None):
         if quantities is None:
             quantities = ['pos', 'mass']
-        bulge_data = self.GC21.read_halo(quantities, halo='MW', ptype='bulge')
+        bulge_data = self.sim.read_halo(quantities, halo='MW', ptype='bulge')
         return bulge_data
         
-    def load_mw_disk(self, quantities=None):
+    def load_mw_disk(self, quantities=None, npart=None):
         if quantities is None:
             quantities = ['pos', 'mass']
-        disk_data = self.GC21.read_halo(quantities, halo='MW', ptype='disk')
+        disk_data = self.sim.read_halo(quantities, halo='MW', ptype='disk')
         return disk_data
 
     def load_halo(self, halo,  quantities=None, npart=None):
@@ -49,13 +58,17 @@ class LoadSim:
         if quantities is None:
             quantities = ['pos', 'mass']
 
-        if halo == in ('MW', 'LMC'):
+        if halo in ('MW', 'LMC'):
             if npart:
-                halo_data = self.GC21.read_halo(quantities, halo=halo, ptype='dm', randomsample=npart)
+                halo_data = self.sim.read_halo(quantities, halo=halo, ptype='dm', randomsample=npart)
             else:   
-                halo_data = self.GC21.read_halo(quantities, halo=halo, ptype='dm')
+                halo_data = self.sim.read_halo(quantities, halo=halo, ptype='dm')
 
         elif halo == 'MWnoLMC':
+            if self.suite == 'Sheng24':
+                raise ValueError "halo MWnoLMC not available for the Sheng24 suite"
+                sys.exit()
+
             halo_data = self.gadget.read_snapshot(quantities, 'dm')
             all_npart = len(halo_data['mass'])
 

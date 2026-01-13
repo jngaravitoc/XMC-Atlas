@@ -158,7 +158,9 @@ def main(config_file, suite):
     if isinstance(component, str):
         component = [component]
 
-    # Load centers here
+    #---------------------------------------------
+    #            1. Load centers 
+    #---------------------------------------------
     centers = {}
     for comp in component:
         centers[comp] = load_GC21_exp_center(
@@ -170,7 +172,10 @@ def main(config_file, suite):
 
         assert centers[comp].shape[1] == 3, "centers array dimension has to be (nsnaps, 3)"
     
-    # Load basis only ones across snapshots
+    #---------------------------------------------
+    #     2. Load basis & set unit system
+    #---------------------------------------------
+
     if expansion_type=='EXP':
         # Move to directory conteining basis files
         os.chdir(basis_paths)
@@ -182,7 +187,8 @@ def main(config_file, suite):
         for comp in component:
             basis[comp]= load_exp_basis(simulation_files, basis_paths, comp, suite, compute_variance) 
             if comp == 'MWdisk':
-                assert basis[comp].getFieldType() == "cylinder"
+                print(basis[comp].getFieldType())
+                assert basis[comp].getFieldType() == "Cylindrical"
             else:
                 assert basis[comp].getFieldType() == "Spherical"
 
@@ -194,6 +200,11 @@ def main(config_file, suite):
 
     elif expansion_type == 'AGAMA':
          agama_units = setAGAMAunits(unit_system)
+
+
+    #---------------------------------------------
+    #  3. Read data and loop over snapshot data
+    #---------------------------------------------
 
     for snap in snaps_to_compute_exp:
         particle_data = load_particle_data( 
@@ -207,10 +218,17 @@ def main(config_file, suite):
         print(snap, particle_data[component[0]]['snapshot_time'])
         logging.info("Done loading particle data")
 
-        # Recentering
+        #---------------------------------------------
+        #     4. Recenter particle data
+        #---------------------------------------------
+
         for comp in component:
             particle_data[comp]['pos'] -= centers[comp][snap]
         logging.info("Done re-centering data")
+        
+        #---------------------------------------------
+        #     5. Compute coefficients 
+        #---------------------------------------------
                 
         if expansion_type=='EXP':
             # Define unit system
@@ -222,10 +240,11 @@ def main(config_file, suite):
                     output_dir + coefs_file,
                     unit_system=exp_units)
 
-                logging.info("Done computing coefficients")
-    # AGAMA
+                logging.info("Done computing {} coefficients".format(comp))
         
-
+        # TODO: add here option to compute BFE quality check?
+        # Maybe easier to do it for the halo by comparing the density profile?
+        # AGAMA
         elif expansion_type=='AGAMA':
             raise NotImplementedError("AGAMA expansions are work in progress")
             # Add units here too
