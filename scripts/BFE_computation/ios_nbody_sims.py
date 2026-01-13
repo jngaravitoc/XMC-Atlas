@@ -27,7 +27,7 @@ class LoadSim:
         #self.GC21 = nba.ios.ReadGC21(self.snapshot_dir, self.snapname)
         self.gadget = nba.ios.ReadGadgetSim(self.snapshot_dir, self.snapname)
         self.suite = suite
-        is suite == "GC21":
+        if suite == "GC21":
             self.sim = nba.ios.ReadGC21(self.snapshot_dir, self.snapname)
         elif suite == "Sheng24":
             self.sim = nba.ios.ReadSheng24(self.snapshot_dir, self.snapname)
@@ -84,7 +84,7 @@ class LoadSim:
 
         return halo_data
 
-def load_particle_data(snapshot_dir, snapname, components, nsnap, **kwargs):
+def load_particle_data(snapshot_dir, snapname, components, nsnap, suite, **kwargs):
     """
     Load particle data for one or more galaxy components from a snapshot.
 
@@ -137,7 +137,7 @@ def load_particle_data(snapshot_dir, snapname, components, nsnap, **kwargs):
     # Load snapshot
     # ----------------------------
     full_snapname = f"{snapname}_{nsnap:03d}.hdf5"
-    load_data = LoadSim(snapshot_dir, full_snapname)
+    load_data = LoadSim(snapshot_dir, full_snapname, suite)
 
     logging.info("--------------------------------")
     logging.info(f"Loading snapshot: {full_snapname}")
