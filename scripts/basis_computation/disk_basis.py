@@ -27,13 +27,13 @@ parameters:
   nmaxfid: 64                      # maximum radial order for spherical basis
   lmaxfid: 64                      # maximum harmonic order for spherical basis
   mmax: 0                          # maximum azimuthal order of cylindrical basis
-  nmax: 24                          # maximum radial order of cylindrical basis, Mike's suggestion
+  nmax: 12                          # maximum radial order of cylindrical basis, Mike's suggestion
   ncylodd: 3                       # vertically anti-symmetric basis functions, Martin's suggestion - nmax/2
-  ncylnx: 256                      # grid points in radial direction
-  ncylny: 128                      # grid points in vertical direction
+  ncylnx: 64                    # grid points in radial direction
+  ncylny: 32                      # grid points in vertical direction
   rnum: 200                        # radial quadrature knots for Gram matrix
   pnum: 0                          # azimuthal quadrature knots for Gram matrix
-  tnum: 80                         # latitudinal quadrature knots for Gram matrix
+  tnum: 40                         # latitudinal quadrature knots for Gram matrix
   vflag: 0                         # verbose output flag
   logr: false                      # logarithmically spaced radial grid
   cachename: lmc01.cache.run0    # name of the basis cache file
