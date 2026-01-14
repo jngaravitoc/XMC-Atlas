@@ -2,13 +2,14 @@ import os
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-import gala.potential as gp
-import nba
 import pyEXP
+import nba
+import gala.potential as gp
 #import EXPtools
-from build_basis_helpers import plot_profiles
+
+from plot_helpers import plot_profiles
 from fit_density import fit_profile, fit_density_profile
-#from basis_utils import make_basis
+from basis_utils import make_basis
 
 sys.path.append("../")
 sys.path.append("../BFE_computation")
@@ -179,46 +180,29 @@ if __name__ == "__main__":
     # 5. Compute Halo basis 
     # -------------------------
     
-    #r_basis = np.linspace(0.01, 500, 500)
-    #rho_fit = fit_density_profile(r_basis, *fit_params)
+    r_basis = np.linspace(0.01, 500, 500)
+    rho_fit = fit_density_profile(r_basis, *fit_params)
 
-    #basis_config = {
-    #"basis_id": "sphereSL",
-    #"numr" : 500,
-    #"rmin" : 0.01,
-    #"rmax" : 500,
-    #"Lmax" : 1,
-    #"nmax" : 5,
-    #"rmapping" : 1.0,
-    #"modelname" : "test_model.txt",
-    #"cachename" : "test_cache.txt",
-    #}
+    basis_config = {
+    "basis_id": "sphereSL",
+    "numr" : 500,
+    "rmin" : 0.01,
+    "rmax" : 500,
+    "Lmax" : 1,
+    "nmax" : 5,
+    "rmapping" : 1.0,
+    "modelname" : "test_model.txt",
+    "cachename" : "test_cache.txt",
+    }
 
 
-    #config = """
-    #id : sphereSL
-    #parameters :
-    #  numr : 500 
-    #  rmin : 0.01
-    #  rmax : 500
-    #  Lmax : 1
-    #  nmax : 5
-    #  rmapping : 1.0
-    #  modelname : test_model.txt
-    #  cachename : test_cache3.txt
-    #"""
-    
-    #basis = make_basis(
-    #    R = r_basis, 
-    #    D = rho_fit, 
-    #    Mtotal = 1,
-    #    basis_params = basis_config,
-    #    )
-    #print(type(basis))
-    with open("test_basis.yaml", "r") as f:
-        bconfig = f.read()
-
+    bconfig = make_basis(
+        r_basis, 
+        rho_fit, 
+        Mtotal=1, 
+        basis_params= basis_config)
     pyEXP.basis.Basis.factory(bconfig)
+
     #--------------------------
     # 6. Compute coefficients
     # -------------------------
