@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import pyEXP
 import nba
 import gala.potential as gp
-#import EXPtools
 
 from plot_helpers import plot_profiles
 from fit_density import fit_profile, fit_density_profile
@@ -20,6 +19,8 @@ from compute_bfe_helpers import (
     load_sheng24_exp_center, 
     get_snapshot_suffixes
     )
+
+#from exp_coefficients import compute_exp_coefs_parallel
 
 def compute_GC21_mw_halo_basis():
     """Main driver for building the halo basis expansion."""
@@ -87,17 +88,28 @@ if __name__ == "__main__":
     suite = "Sheng24"
     SIM_PARAMS_PATH = '../../suites/Sheng24/orbits'
     SIM_PARAMS_FILE = 'MW_LMC_orbits_iso.txt'
-    # profile fitting
-    
+    softening = 0.6 #
+    # profile fitting params
     rmin = 0.1 # should be 4*softening
     rmax = 500
     nbins = 101
+    component = 'halo'
 
-    # pipeline params
+    # basis params:
+    basis_filenames = "basis_{}_{:04d}.yaml".format(component, SIM_ID)
+    nbins_basis = 1000
+    lmax = int(1)
+    nmax = int(10)
+    rmapping = 1.0
+    modelname = 'modelname_{}_{:04d}.txt'.format(component, SIM_ID)
+    cachename = 'cache_{}_{:04d}.txt'.format(component, SIM_ID)
+
+    # Coefficients:
+    coefs_filename = '{}_{:04d}_coefficients.hdf5'.format(component, SIM_ID)
+    # pipeline params:
     paranoid = True
-    figure_name = 'sim_{:04d}_density_profile_evolution.png'.format(SIM_ID)
+    figure_name = '{}_{:04d}_density_profile_evolution.png'.format(component, SIM_ID)
     
-
     #--------------------------
     # 1. Load halo centers
     # -------------------------
@@ -135,6 +147,7 @@ if __name__ == "__main__":
         data = load_particle_data(SNAPSHOT_PATH, SNAPNAME, ['MWhalo'], nsnap=i, suite=suite)
         pos = data['MWhalo']['pos']
         mass = data['MWhalo']['mass']
+        print(data["MWhalo"].keys())
         pos_center = pos - mw_center[i]
         
         #--------------------------
@@ -180,34 +193,68 @@ if __name__ == "__main__":
     # 5. Compute Halo basis 
     # -------------------------
     
-    r_basis = np.linspace(0.01, 500, 500)
+    r_basis = np.linspace(rmin, rmax, nbins_basis)
     rho_fit = fit_density_profile(r_basis, *fit_params)
 
     basis_config = {
     "basis_id": "sphereSL",
-    "numr" : 500,
-    "rmin" : 0.01,
-    "rmax" : 500,
-    "Lmax" : 1,
-    "nmax" : 5,
-    "rmapping" : 1.0,
-    "modelname" : "test_model.txt",
-    "cachename" : "test_cache.txt",
+    "numr" : nbins_basis,
+    "rmin" : rmin,
+    "rmax" : rmax,
+    "Lmax" : lmax,
+    "nmax" : nmax,
+    "rmapping" : rmapping,
+    "modelname" : modelname,
+    "cachename" : cachename,
     }
 
-
+    #TODO define Mtotal
     bconfig = make_basis(
         r_basis, 
         rho_fit, 
         Mtotal=1, 
-        basis_params= basis_config)
-    pyEXP.basis.Basis.factory(bconfig)
+        basis_params= basis_config,
+        basis_filename = basis_filenames)
+
+    basis = pyEXP.basis.Basis.factory(bconfig)
 
     #--------------------------
     # 6. Compute coefficients
     # -------------------------
+    # TODO: why if this import is earlier in the script
+    # the cache is not build in step 5?
+
+    from exp_coefficients import compute_exp_coefs_parallel
+    
+    compname = 'halo'
+    runtag   = 'run1'
+    time     = 0.0
+    basis.enableCoefCovariance(pcavar=True, nsamples=100, covar=True)
+    basis.writeCoefCovariance(compname, runtag, time)
+
+    gadget_particle_mass = 1e10
+    units = [('mass', 'Msun', gadget_particle_mass),
+             ('length', 'kpc', 1.0),
+             ('velocity', 'km/s', 1.0),
+             ('G', 'mixed', 43007.1)]
+
+    #compute_exp_coefs_parallel(
+    #    data["MWhalo"],
+    #    basis,
+    #    component,
+    #    coefs_filename,
+    #    unit_system=units)
+
+    # Read coefficients
+    #coefs = pyEXP.coeds.Coefs.factory(coefs_filename)
+
+    #--------------------------------
+    # 7. Compute BFE density profile
+    # ------------------------------
+    
 
     #--------------------------
-    # 7. Compute MISE
+    # 8. Compute MISE
     # -------------------------
 
+    
