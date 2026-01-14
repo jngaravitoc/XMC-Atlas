@@ -1,0 +1,10 @@
+id : sphereSL
+parameters :
+  numr : 500
+  rmin : 0.01
+  rmax : 500.0
+  Lmax : 1
+  nmax : 5
+  rmapping : 1.0
+  modelname : test_model.txt
+  cachename : test_cache.txt
