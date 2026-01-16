@@ -82,7 +82,7 @@ if __name__ == "__main__":
     # Define parameters  
     # -------------------------
     # Simulation files, paths
-    SIM_ID = 108
+    SIM_ID = int(sys.argv[1]) if len(sys.argv) > 1 else 108
     SNAPSHOT_PATH = "../../../../XMC-Atlas-sims/Sheng/Model_{}".format(SIM_ID)
     SNAPNAME = "snapshot"
     nsnap = 0 
@@ -91,14 +91,25 @@ if __name__ == "__main__":
     SIM_PARAMS_FILE = 'MW_LMC_orbits_iso.txt'
     softening = 0.6 #
     # profile fitting params
+    component = 'bulge'
     rmin = 0.1 # should be 4*softening
-    rmax = 500
     nbins = 101
-    component = 'halo'
+    if component == 'bulge':
+        rmax = 40
+    elif component == 'halo':
+        rmax = 500
+    elif component == 'lmc':
+        rmax = 200
 
     # basis params:
     basis_filenames = "basis_{}_{:04d}.yaml".format(component, SIM_ID)
-    nbins_basis = 1000
+    if component == 'bulge':
+        nbins_basis = 400
+    elif component == 'halo':
+        nbins_basis = 1000
+    elif component == 'lmc':
+        nbins_basis = 600
+    
     lmax = int(1)
     nmax = int(10)
     rmapping = 1.0
@@ -112,8 +123,8 @@ if __name__ == "__main__":
     paranoid = True
     figure_name = '{}_{:04d}_density_profile_evolution.png'.format(component, SIM_ID)
     outpath = "./test_sheng24/"
-    particle_profiles_filename = "density_profiles_sheng24.h5"
-    bfe_profiles_filename = "bfe_density_profiles_sheng24.h5"
+    particle_profiles_filename = "{}_density_profiles_sheng24.h5".format(component)
+    bfe_profiles_filename = "bfe_{}_density_profiles_sheng24.h5".format(component)
     #--------------------------
     # 1. Load halo centers
     # -------------------------
@@ -146,20 +157,27 @@ if __name__ == "__main__":
 
     rho_part_all = np.zeros((NSNAPS, nbins-1))
     r_bins_model = np.linspace(rmin, rmax, nbins)
+    
+    if component == "halo":
+        comp = "MWhalo"
+    elif component == "lmc":
+        comp = "LMChalo"
+    elif component == "bulge":
+        comp = "MWbulge"
 
     for i in range(NSNAPS):
         snapshot = SNAPNAME + "{:03d}.hdf5".format(i)
-        data = load_particle_data(SNAPSHOT_PATH, SNAPNAME, ['MWhalo'], nsnap=i, suite=suite)
-        pos = data['MWhalo']['pos']
-        mass = data['MWhalo']['mass']
-        print(data["MWhalo"].keys())
+        data = load_particle_data(SNAPSHOT_PATH, SNAPNAME, [comp], nsnap=i, suite=suite)
+        pos = data[comp]['pos']
+        mass = data[comp]['mass']
+        print(data[comp].keys())
         pos_center = pos - mw_center[i]
         
         #--------------------------
         # 3. Compute density profile 
         # -------------------------
-
         r_bins_part, rho_part_all[i]  = make_density_profile(pos_center, mass, r_bins_model)
+
     print("-> Done computing density profiles")
     
     write_density_profiles(
@@ -198,7 +216,7 @@ if __name__ == "__main__":
             time=tsim,
             r_fit = r_bins_part,
             rho_fit = rho_fit,
-            title=f"Halo {SIM_ID} density profile", 
+            title=f"{component} {SIM_ID} density profile", 
             filename=outpath+figure_name)
    
     
@@ -227,7 +245,7 @@ if __name__ == "__main__":
         rho_fit, 
         Mtotal=1, 
         basis_params= basis_config,
-        basis_filename = basis_filenames)
+        basis_filename = outpath+basis_filenames)
 
     basis = pyEXP.basis.Basis.factory(bconfig)
 
@@ -251,38 +269,37 @@ if __name__ == "__main__":
              ('velocity', 'km/s', 1.0),
              ('G', 'mixed', 43007.1)]
 
-    
-     
     for i in range(0, NSNAPS, 10):
         snapshot = SNAPNAME + "{:03d}.hdf5".format(i)
-        data = load_particle_data(SNAPSHOT_PATH, SNAPNAME, ['MWhalo'], nsnap=i, suite=suite)
-        pos = data['MWhalo']['pos']
-        mass = data['MWhalo']['mass']
+
+        data = load_particle_data(SNAPSHOT_PATH, SNAPNAME, [comp], nsnap=i, suite=suite)
+        pos = data[comp]['pos']
+        mass = data[comp]['mass']
         pos_center = pos - mw_center[i]
         
 
         compute_exp_coefs_parallel(
-            data["MWhalo"],
+            data[comp],
             basis,
             component,
-            coefs_filename,
+            outpath+coefs_filename,
             unit_system=units)
     
     #Read coefficients
-    coefs = pyEXP.coefs.Coefs.factory(coefs_filename)
+    coefs = pyEXP.coefs.Coefs.factory(outpath+coefs_filename)
     coefs_times = coefs.Times()
     #--------------------------------
     # 7. Compute BFE density profile
     # ------------------------------
     rho_bfe_t = np.zeros((NSNAPS, len(r_bins_part)))
-    print(len(coefs_times))
-    for t in range(len(coefs_times)):
+    j=0
+    for i in range(0, NSNAPS, 10):
         rho_bfe_t[i] = bfe_density_profiles(
             basis, 
             coefs, 
             r_bins=r_bins_part, 
-            time=coefs_times[t])
-    
+            time=coefs_times[j])
+        j+=1
     write_density_profiles(
         suite_id=SIM_ID, 
         snaps=np.arange(0, NSNAPS, 1), 
