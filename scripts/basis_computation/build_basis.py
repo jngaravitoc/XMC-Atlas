@@ -9,10 +9,12 @@ import gala.potential as gp
 from plot_helpers import plot_profiles
 from fit_density import fit_profile, fit_density_profile
 from basis_utils import make_basis
+from basis_fidelity import bfe_density_profiles 
 
 sys.path.append("../")
 sys.path.append("../BFE_computation")
 
+from atlas_data_products import write_density_profiles
 from sanity_checks import check_monotonic_profiles, check_monotonic_contiguous_snapshots
 from ios_nbody_sims import load_particle_data
 from compute_bfe_helpers import (
@@ -66,13 +68,12 @@ def compute_GC21_mw_halo_basis():
 
     print(f"Basis written to {OUTPATH+BASIS_NAME}")
 
-def make_density_profile(pos, mass, rmin=0.1, rmax=400, nbins=500):
+def make_density_profile(pos, mass, r_edges):
     """
     TODO: this profile is constructed by building the data.
     try this also  by using KDTREE
     """
-    rbins_linear = np.linspace(rmin, rmax, nbins) 
-    profile = nba.structure.Profiles(pos, rbins_linear)
+    profile = nba.structure.Profiles(pos, r_edges)
     r_profile, dens_profile = profile.density(mass=mass)
     return r_profile, dens_profile
 
@@ -105,11 +106,14 @@ if __name__ == "__main__":
     cachename = 'cache_{}_{:04d}.txt'.format(component, SIM_ID)
 
     # Coefficients:
-    coefs_filename = '{}_{:04d}_coefficients.hdf5'.format(component, SIM_ID)
+    coefs_filename = '{}_{:04d}_coefficients.h5'.format(component, SIM_ID)
+    
     # pipeline params:
     paranoid = True
     figure_name = '{}_{:04d}_density_profile_evolution.png'.format(component, SIM_ID)
-    
+    outpath = "./test_sheng24/"
+    particle_profiles_filename = "density_profiles_sheng24.h5"
+    bfe_profiles_filename = "bfe_density_profiles_sheng24.h5"
     #--------------------------
     # 1. Load halo centers
     # -------------------------
@@ -141,6 +145,7 @@ if __name__ == "__main__":
     # ----------------------------------------
 
     rho_part_all = np.zeros((NSNAPS, nbins-1))
+    r_bins_model = np.linspace(rmin, rmax, nbins)
 
     for i in range(NSNAPS):
         snapshot = SNAPNAME + "{:03d}.hdf5".format(i)
@@ -154,8 +159,15 @@ if __name__ == "__main__":
         # 3. Compute density profile 
         # -------------------------
 
-        r_bins_part, rho_part_all[i]  = make_density_profile(pos_center, mass, rmin=rmin, rmax=rmax, nbins=nbins)
+        r_bins_part, rho_part_all[i]  = make_density_profile(pos_center, mass, r_bins_model)
     print("-> Done computing density profiles")
+    
+    write_density_profiles(
+        suite_id=SIM_ID, 
+        snaps=np.arange(0, NSNAPS, 1), 
+        rbins=r_bins_part,
+        profiles=rho_part_all,
+        filename=outpath+particle_profiles_filename)
 
     if paranoid == True: 
         check_center, fail_ids = check_monotonic_profiles(rho_part_all[:,:10])
@@ -175,6 +187,7 @@ if __name__ == "__main__":
     # 4. Fit density profile 
     # -------------------------
     
+    # TODO: do the fit for the mean
     rho_fit, fit_params = fit_profile(r_bins_part, rho_part_all[0])
     
 
@@ -186,7 +199,7 @@ if __name__ == "__main__":
             r_fit = r_bins_part,
             rho_fit = rho_fit,
             title=f"Halo {SIM_ID} density profile", 
-            filename=figure_name)
+            filename=outpath+figure_name)
    
     
     #--------------------------
@@ -225,7 +238,7 @@ if __name__ == "__main__":
     # the cache is not build in step 5?
 
     from exp_coefficients import compute_exp_coefs_parallel
-    
+
     compname = 'halo'
     runtag   = 'run1'
     time     = 0.0
@@ -238,20 +251,44 @@ if __name__ == "__main__":
              ('velocity', 'km/s', 1.0),
              ('G', 'mixed', 43007.1)]
 
-    #compute_exp_coefs_parallel(
-    #    data["MWhalo"],
-    #    basis,
-    #    component,
-    #    coefs_filename,
-    #    unit_system=units)
+    
+     
+    for i in range(0, NSNAPS, 10):
+        snapshot = SNAPNAME + "{:03d}.hdf5".format(i)
+        data = load_particle_data(SNAPSHOT_PATH, SNAPNAME, ['MWhalo'], nsnap=i, suite=suite)
+        pos = data['MWhalo']['pos']
+        mass = data['MWhalo']['mass']
+        pos_center = pos - mw_center[i]
+        
 
-    # Read coefficients
-    #coefs = pyEXP.coeds.Coefs.factory(coefs_filename)
-
+        compute_exp_coefs_parallel(
+            data["MWhalo"],
+            basis,
+            component,
+            coefs_filename,
+            unit_system=units)
+    
+    #Read coefficients
+    coefs = pyEXP.coefs.Coefs.factory(coefs_filename)
+    coefs_times = coefs.Times()
     #--------------------------------
     # 7. Compute BFE density profile
     # ------------------------------
+    rho_bfe_t = np.zeros((NSNAPS, len(r_bins_part)))
+    print(len(coefs_times))
+    for t in range(len(coefs_times)):
+        rho_bfe_t[i] = bfe_density_profiles(
+            basis, 
+            coefs, 
+            r_bins=r_bins_part, 
+            time=coefs_times[t])
     
+    write_density_profiles(
+        suite_id=SIM_ID, 
+        snaps=np.arange(0, NSNAPS, 1), 
+        rbins=r_bins_part, 
+        profiles=rho_bfe_t,
+        filename=outpath+bfe_profiles_filename)
 
     #--------------------------
     # 8. Compute MISE
