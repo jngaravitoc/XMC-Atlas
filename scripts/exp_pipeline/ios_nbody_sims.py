@@ -143,7 +143,7 @@ def load_particle_data(snapshot_dir, snapname, components, nsnap, suite, **kwarg
     full_snapname = f"{snapname}_{nsnap:03d}.hdf5"
     load_data = LoadSim(snapshot_dir, full_snapname, suite=suite)
 
-    if verbose in kwargs:
+    if verbose:
         logging.info("--------------------------------")
         logging.info(f"Loading snapshot: {full_snapname}")
 
@@ -179,17 +179,17 @@ def load_particle_data(snapshot_dir, snapname, components, nsnap, suite, **kwarg
             "pos": particle_data["pos"],
             "mass": particle_data["mass"]
         }
-        if msun_units in kwargs:
-            data["mass"] = data["mass"]*1e10
+        if msun_units:
+            data[component]["mass"] *=1e10
     
-        if verbose in kwargs:
+        if verbose:
             logging.info(f"Loaded component: {component}")
         
         data[component]['snapshot_time'] = load_data.load_snap_time()
     # ----------------------------
     # Load snapshot time (once)
     # ----------------------------
-    if verbose in kwargs:
+    if verbose:
         logging.info("Done loading snapshot time")
 
     return data
