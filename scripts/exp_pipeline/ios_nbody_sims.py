@@ -149,7 +149,6 @@ def load_particle_data(snapshot_dir, snapname, components, nsnap, suite, **kwarg
 
     data = {}
 
-    if msun in kwargs:
         
     # ----------------------------
     # Load each component
