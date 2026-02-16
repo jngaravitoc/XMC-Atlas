@@ -85,7 +85,8 @@ class LoadSim:
 
         return halo_data
 
-def load_particle_data(snapshot_dir, snapname, components, nsnap, suite, **kwargs):
+def load_particle_data(snapshot_dir, snapname, components, nsnap, suite,
+        verbose=False, msun_units=False, **kwargs):
     """
     Load particle data for one or more galaxy components from a snapshot.
 
@@ -143,7 +144,7 @@ def load_particle_data(snapshot_dir, snapname, components, nsnap, suite, **kwarg
     full_snapname = f"{snapname}_{nsnap:03d}.hdf5"
     load_data = LoadSim(snapshot_dir, full_snapname, suite=suite)
 
-    if verbose:
+    if verbose :
         logging.info("--------------------------------")
         logging.info(f"Loading snapshot: {full_snapname}")
 
@@ -175,10 +176,8 @@ def load_particle_data(snapshot_dir, snapname, components, nsnap, suite, **kwarg
             raise RuntimeError(f"Unhandled component: {component}")
 
         # Enforce required output structure
-        data[component] = {
-            "pos": particle_data["pos"],
-            "mass": particle_data["mass"]
-        }
+        data[component] = {key: particle_data[key] for key in particle_data.keys()}
+        
         if msun_units:
             data[component]["mass"] *=1e10
     
