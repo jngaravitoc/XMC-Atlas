@@ -41,7 +41,7 @@ def load_basis(config_name, cache_dir=None):
         config = re.sub(r"(modelname:\s*)(\S+)", rf"\1{cache_dir}\2", config)
         config = re.sub(r"(cachename:\s*)(\S+)", rf"\1{cache_dir}\2", config)
     # Build basis from configuration
-    basis = pyEXP.basis.Basis.factory(config)
+    basis = pyEXP.basis.Basis.factory(str(config))
     return basis
    
 
