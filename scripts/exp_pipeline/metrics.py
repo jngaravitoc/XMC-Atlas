@@ -25,12 +25,12 @@ def KDT_density_points(pos, m, points, k_max=1000):
     
     return m/v
 
-def mise(exp_field, target_field):
-	return np.mean((exp_field - target_field) ** 2)
+def mise(exp_field, target_field, axis=None):
+	return np.mean((exp_field - target_field) ** 2, axis=axis)
 
-def mirse(exp_field, target_fieldm, axis=None):
+def mirse(exp_field, target_field, axis=None):
     with np.errstate(divide="ignore", invalid="ignore"):
-	    return  np.mean((exp_density/target_density - 1.0)**2, axis=axis)
+	    return  np.mean((exp_field/target_field - 1.0)**2, axis=axis)
 	
 def compute_exp_field(coefficients, basis, time, grid):
 	# calculate density field on the provided grid
@@ -99,7 +99,7 @@ def MIRSE_grid(basis, coefs, grid, t, target_density, nmax=18, lmax=10, verbose=
             dens = surfaces[coefs.Times()[t]]['dens']
 
             # calculate MIRSE
-            MIRSE[n, l] = np.mean((dens/gad_density - 1.)**2)
+            MIRSE[n, l] = np.mean((dens/target_density - 1.)**2)
 
     return MIRSE
 

@@ -8,6 +8,13 @@ import sys
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.patches import Circle
+from EXPtools.visuals import use_exptools_style
+
+
+import pyEXP
+from metrics import mise, mirse
 
 def plot_profiles(radius, density, time, title='Profile Evolution',
                   r_fit=None, rho_fit=None, fit_label='Fit', filename=None):
@@ -86,6 +93,204 @@ def plot_profiles(radius, density, time, title='Profile Evolution',
 
     return fig, ax
 
+class FieldProjections:
+    def __init__(self, grid, basis, coefs, times):
+        self.grid = grid
+        self.basis = basis
+        self.coefs = coefs
+        self.times = times
+        assert np.shape(self.grid)[0] == 3
+        assert np.shape(self.grid)[1] == np.shape(self.grid)[2] == np.shape(self.grid)[3]
+        self.nbins = np.shape(self.grid)[1]
+        self.mesh = np.zeros((self.nbins**3, 3))
+        self.mesh[:,0] = self.grid[0].flatten()
+        self.mesh[:,1] = self.grid[1].flatten()
+        self.mesh[:,2] = self.grid[2].flatten()
+		
+    def compute_fields_in_points(self):
+        """
+        returns a dictionary 
+        times is an array with the time values
+        """
+        fields = pyEXP.field.FieldGenerator(self.times, self.mesh)
+        points = fields.points(self.basis, self.coefs)
+        return points
+
+    def twod_field(self, points, time, field):
+        """
+		Parameters:
+		time : float 
+			has to be in the list of times
+		field: list of strings conatining desired fields
+		"""
+        available_fields = ['azi force', 'dens', 'dens m=0', 
+							'dens m>0', 'mer force', 'potl', 
+							'potl m=0', 'potl m>0', 'rad force']
+		
+        if isinstance(field, str):
+            field = [field]
+		
+        for f in field:
+            if f not in available_fields:
+                raise ValueError("field value {} not available".format(f))
+
+        if time not in self.times:
+            raise ValueError("Requested time not in times")
+		
+        fields = []
+
+        for f in field:
+            field_arr = np.array(points[time][f]).reshape(self.nbins, self.nbins, self.nbins)
+            fields.append(field_arr)
+        return fields
+	
+    def kde_density(self, pos, mass, Ndens=64):
+        """
+        Ndens: n neighboors
+        """
+        kddens = pyEXP.util.KDdensity(mass = mass, pos = pos, Ndens = Ndens)
+        kd_dens = np.zeros(self.nbins**3)
+        for i in range(self.nbins**3):
+            kd_dens[i] = kddens.getDensityAtPoint(self.mesh[i,0], self.mesh[i,1], self.mesh[i,2])
+
+        return kd_dens.reshape(self.nbins, self.nbins, self.nbins)
 
 
+def density_dashboard(kd_dens, dens_bfe, mise_logdens, mirse_dens, rvir=300, mean_axis=0):
+    """
+    Plot a 2x2 density comparison dashboard between KDE and BFE reconstructions.
 
+    The figure shows projected density maps and their error diagnostics:
+        (0,0) KDE density
+        (0,1) BFE density
+        (1,0) Log10 MIRSE residuals
+        (1,1) MISE in log-density space
+
+    Parameters
+    ----------
+    kd_dens : ndarray
+        Kernel density estimate evaluated on a 3D grid with shape (Nx, Ny, Nz)
+        or equivalent cube compatible with projection along `mean_axis`.
+
+    dens_bfe : ndarray
+        Density reconstructed from the basis function expansion on the same grid
+        as `kd_dens`.
+
+    mise_logdens : ndarray
+        Mean Integrated Squared Error computed in log-density space. Must be a
+        2D projected map compatible with visualization.
+
+    mirse_dens : ndarray
+        Mean Integrated Root Squared Error in density space, provided as a 2D map.
+
+    mean_axis : int, optional
+        Axis along which the density cube is averaged to obtain the projected map.
+        Default is 0.
+
+    rvir : float (keyword-only)
+        Virial radius of the halo in the same spatial units as the map (kpc). A
+        circle of this radius is overplotted on each panel.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The generated dashboard figure.
+
+    Notes
+    -----
+    All panels use fixed color limits to enable visual comparison between
+    reconstruction methods across different halos and simulations.
+    """
+    
+    rvir = rvir
+
+    # ---------- circle factory ----------
+    def _make_r200_circle(radius, edgecolor='white', label=None):
+        return Circle(
+            (0, 0), radius,
+            facecolor='none',
+            edgecolor=edgecolor,
+            linestyle='--',
+            linewidth=1.0,
+            label=label
+        )
+
+    use_exptools_style(usetex=True)
+    # ---------- figure ----------
+    fig, ax = plt.subplots(2, 2, figsize=(6,6), sharey=True)
+
+    # ====== KDE ======
+    im1 = ax[0,0].imshow(
+        np.log10(np.mean(kd_dens, axis=mean_axis).T),
+        extent=[-300, 300, -300, 300],
+        cmap='twilight', vmin=-8, vmax=-3
+    )
+    ax[0,0].set_xlim(-300, 300)
+    ax[0,0].set_ylim(-300, 300)
+    ax[0,0].add_patch(_make_r200_circle(rvir))
+
+    divider = make_axes_locatable(ax[0,0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    fig.colorbar(im1, cax=cax)
+
+    ax[0,0].set_title('KDE')
+
+    # ====== BFE ======
+    im2 = ax[0,1].imshow(
+        np.log10(np.mean(dens_bfe, axis=mean_axis).T),
+        extent=[-300, 300, -300, 300],
+        cmap='twilight', vmin=-8, vmax=-3
+    )
+    ax[0,1].set_xlim(-300, 300)
+    ax[0,1].set_ylim(-300, 300)
+    ax[0,1].add_patch(_make_r200_circle(rvir))
+
+    divider = make_axes_locatable(ax[0,1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    fig.colorbar(im2, cax=cax, label=r'$\rm{Log_{10}} \rho$')
+
+    ax[0,1].set_title('BFE')
+
+    # ====== MIRSE ======
+    im3 = ax[1,0].imshow(
+        np.log10(mirse_dens.T),
+        extent=[-300, 300, -300, 300],
+        cmap='RdBu_r', vmin=-1.6, vmax=1.6
+    )
+    ax[1,0].set_xlim(-300, 300)
+    ax[1,0].set_ylim(-300, 300)
+    ax[1,0].add_patch(_make_r200_circle(rvir))
+
+    divider = make_axes_locatable(ax[1,0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    fig.colorbar(im3, cax=cax)
+
+    ax[1,0].set_title(r'$\rm{Log_{10}}$\ MIRSE ($\rho$)')
+
+    # ====== MISE ======
+    im4 = ax[1,1].imshow(
+        mise_logdens.T,
+        extent=[-300, 300, -300, 300],
+        cmap='gist_heat_r', vmin=0, vmax=0.2
+    )
+    ax[1,1].set_xlim(-300, 300)
+    ax[1,1].set_ylim(-300, 300)
+    ax[1,1].add_patch(_make_r200_circle(rvir, edgecolor='black'))
+
+    divider = make_axes_locatable(ax[1,1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    fig.colorbar(im4, cax=cax)
+
+    ax[1,1].set_title(r'MISE ($\rm{Log_{10}}\rho$)')
+
+    # ---------- shared formatting ----------
+    for a in ax.flat:
+        a.set_aspect('equal', adjustable='box')
+        a.set_xlabel('kpc')
+
+    ax[0,0].set_ylabel('kpc')
+    ax[1,0].set_ylabel('kpc')
+
+    fig.tight_layout()
+
+    return fig
