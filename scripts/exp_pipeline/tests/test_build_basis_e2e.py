@@ -45,7 +45,7 @@ def test_build_basis_halo_0108(tmp_path):
     str(script_path),
     "108",           # first positional argument
     "halo",          # second positional argument
-    "--ncoefs", "10", #third positional argument
+    "--coefs_freq", "10", #third positional argument
     "--fit-type", "initial",  # optional flag with value
     #"--compute-mise", "False",     # optional boolean flag
 	"--output_dir", "test_sheng24_108"
