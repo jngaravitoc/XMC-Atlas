@@ -128,7 +128,7 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
         # Load sim centers
         print(f"Loading center data...")
         sim_centers = load_sheng24_exp_center(
-            origin_dir="../data/",
+            origin_dir="../suites/Sheng24/orbits",
             centers_filename="MW_LMC_orbits_iso.txt",
             sim_id=halo_id,
             return_vel=True
@@ -136,7 +136,7 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
         print(f"  Center data loaded")
         
         # Change to expansion directory
-        os.chdir("./exp_expansions/tests/")
+        os.chdir("./exp_expansions/basis/")
         
         # Load basis
         config_name = f"basis_halo_{halo_id:04d}.yaml"
@@ -145,7 +145,7 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
         print(f"  Basis loaded")
         
         # Load coefficients
-        coefs_file = f"halo_{halo_id:04d}_coefficients.h5"
+        coefs_file = f"../coefficients/halo_{halo_id:04d}_coefficients.h5"
         print(f"Loading coefficients from {coefs_file}...")
         coefs = pyEXP.coefs.Coefs.factory(coefs_file)
         times = coefs.Times()
@@ -171,7 +171,7 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
         for i in range(len(times)):
             print(f"Loading particle data for halo {halo_id:04d}...")
             p = load_particle_data(
-                f"../suites/{suite}/data/Model_{halo_id:03d}/",
+                f"/n/nyx3/garavito/XMC-Atlas-sims/Sheng/Model_{halo_id:03d}",
                 snapname="snapshot",
                 components=["MWhalo"],
                 nsnap=i,
