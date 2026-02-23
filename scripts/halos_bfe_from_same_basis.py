@@ -159,18 +159,17 @@ def main(
     # 1. Load basis  
     # -------------------------
 
-    # Load basis (rank 0 only, then broadcast)
+    # Load basis (each rank loads independently to avoid pickling issues)
+    os.chdir(basis_path)
+    config_name = f"basis_halo_{SIM_ID:04d}.yaml"
     if world_rank == 0:
-        os.chdir(basis_path)
-        config_name = f"basis_halo_{SIM_ID:04d}.yaml"
         print(f"Loading basis from {config_name}...")
-        basis = load_basis(config_name)
+    basis = load_basis(config_name)
+    if world_rank == 0:
         print(f"  Basis loaded")
-    else:
-        basis = None
     
-    # Broadcast basis to all ranks
-    basis = world_comm.bcast(basis, root=0)
+    # Synchronize all ranks after basis loading
+    world_comm.Barrier()
 	 
 
     from exp_coefficients import compute_exp_coefs_parallel
