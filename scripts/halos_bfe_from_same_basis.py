@@ -71,6 +71,13 @@ def main(
 	compute_mise : bool, optional
 		Whether to compute the MISE (default: False).
     """
+    # --------------------------------------------------
+    # MPI setup
+    # --------------------------------------------------
+    world_comm = MPI.COMM_WORLD
+    world_size = world_comm.Get_size()
+    world_rank = world_comm.Get_rank()
+    
     # PATHS:
     suite = "Sheng24"
     if suite == "Sheng24":
@@ -91,14 +98,22 @@ def main(
     basis_path = "/n/nyx3/garavito/projects/XMC-Atlas/scripts/exp_expansions/basis/"
     coefs_filename = '{}_{:04d}_coefficients.h5'.format(component, SIM_ID)
     
+    # --------------------------------------------------
+    # Serial work on rank 0 only
+    # --------------------------------------------------
+    if world_rank == 0:
+        print("[Rank 0] Loading simulation parameters...")
     
     if world_rank == 0:
-
-
-    sim_params = load_sheng24_exp_center(
-        SIM_PARAMS_PATH, 
-        SIM_PARAMS_FILE,
-        SIM_ID, return_vel=False)
+        sim_params = load_sheng24_exp_center(
+            SIM_PARAMS_PATH, 
+            SIM_PARAMS_FILE,
+            SIM_ID, return_vel=False)
+    else:
+        sim_params = None
+    
+    # Broadcast simulation parameters to all ranks
+    sim_params = world_comm.bcast(sim_params, root=0)
 
     tsim = sim_params['time']
     mw_center = sim_params['mw_center']
@@ -114,30 +129,48 @@ def main(
         comp = "MWbulge"
         exp_center = mw_center
     
-    print("-> Done loading simulation centers")
+    if world_rank == 0:
+        print("-> Done loading simulation centers")
 
-    snap_suffixes = get_snapshot_suffixes(SNAPSHOT_PATH, prefix=SNAPNAME+"_")
-    NSNAPS = len(snap_suffixes)
+    if world_rank == 0:
+        snap_suffixes = get_snapshot_suffixes(SNAPSHOT_PATH, prefix=SNAPNAME+"_")
+        NSNAPS = len(snap_suffixes)
+        
+        if paranoid == True:
+            snap_check, missing_snaps = check_monotonic_contiguous_snapshots(snap_suffixes)
+            print(f"[paranoid] {NSNAPS} snapshots found in {SNAPSHOT_PATH}")
+            print(f"[paranoid] Snapshots are monotonic:", snap_check)
+            if snap_check == False:
+                print(f"[error] snapshots {missing_snaps} are missing")
+            assert NSNAPS == len(tsim), "number of snapshots found differ from size of centers"
+    else:
+        snap_suffixes = None
+        NSNAPS = None
     
-    if paranoid == True:
-        snap_check, missing_snaps = check_monotonic_contiguous_snapshots(snap_suffixes)
-        print(f"[paranoid] {NSNAPS} snapshots found in {SNAPSHOT_PATH}")
-        print(f"[paranoid] Snapshots are monotonic:", snap_check)
-        if snap_check == False:
-            print(f"[error] snapshots {missing_snaps} are missing")
-        assert NSNAPS == len(tsim), "number of snapshots found differ from size of centers"
+    # Broadcast snapshot info to all ranks
+    snap_suffixes = world_comm.bcast(snap_suffixes, root=0)
+    NSNAPS = world_comm.bcast(NSNAPS, root=0)
+    
+    # Synchronize all ranks
+    world_comm.Barrier()
     
     #------------------------------------------
     #--------------------------
     # 1. Load basis  
     # -------------------------
 
-    # Load basis
-    os.chdir(basis_path)
-    config_name = f"basis_halo_{SIM_ID:04d}.yaml"
-    print(f"Loading basis from {config_name}...")
-    basis = load_basis(config_name)
-    print(f"  Basis loaded")
+    # Load basis (rank 0 only, then broadcast)
+    if world_rank == 0:
+        os.chdir(basis_path)
+        config_name = f"basis_halo_{SIM_ID:04d}.yaml"
+        print(f"Loading basis from {config_name}...")
+        basis = load_basis(config_name)
+        print(f"  Basis loaded")
+    else:
+        basis = None
+    
+    # Broadcast basis to all ranks
+    basis = world_comm.bcast(basis, root=0)
 	 
 
     from exp_coefficients import compute_exp_coefs_parallel
@@ -150,33 +183,48 @@ def main(
     #basis.enableCoefCovariance(pcavar=True, nsamples=100, covar=True)
     #basis.writeCoefCovariance(compname, runtag, time)
 
+    # --------------------------------------------------
+    # Parallel coefficient computation
+    # --------------------------------------------------
     gadget_particle_mass = 1e10
     units = [('mass', 'Msun', gadget_particle_mass),
              ('length', 'kpc', 1.0),
              ('velocity', 'km/s', 1.0),
              ('G', 'mixed', 43007.1)]
 
-
     for i in range(0, NSNAPS, ncoefs):
-        print("computing coefficients in snap {}".format(i))
-        snapshot = SNAPNAME + "{:03d}.hdf5".format(i)
-        data = load_particle_data(SNAPSHOT_PATH, SNAPNAME, [comp], nsnap=i, suite=suite)
-        pos = data[comp]['pos']
-        mass = data[comp]['mass']
-        pos_center = pos - exp_center[i]
+        # Load particle data on rank 0 only
+        if world_rank == 0:
+            print("computing coefficients in snap {}".format(i))
+            snapshot = SNAPNAME + "{:03d}.hdf5".format(i)
+            data = load_particle_data(SNAPSHOT_PATH, SNAPNAME, [comp], nsnap=i, suite=suite)
+        else:
+            data = None
         
-
+        # Broadcast particle data to all ranks
+        data = world_comm.bcast(data, root=0)
+        
+        # All ranks compute coefficients in parallel
         compute_exp_coefs_parallel(
             data[comp],
             basis,
             component,
             outpath+coefs_filename,
             unit_system=units)
-        print("Done computing coefficients in snap {}".format(i))
+        
+        if world_rank == 0:
+            print("Done computing coefficients in snap {}".format(i))
     
-    #Read coefficients
-    coefs = pyEXP.coefs.Coefs.factory(outpath+coefs_filename)
-    coefs_times = coefs.Times()
+    # Synchronize before reading results
+    world_comm.Barrier()
+    
+    # Read coefficients (rank 0 only)
+    if world_rank == 0:
+        coefs = pyEXP.coefs.Coefs.factory(outpath+coefs_filename)
+        coefs_times = coefs.Times()
+    else:
+        coefs = None
+        coefs_times = None
 
 
 def parse_args():
