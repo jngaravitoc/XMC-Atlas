@@ -27,7 +27,7 @@ except ImportError:
 # Add exp_pipeline to path
 sys.path.append(os.path.join(os.path.dirname(__file__), "exp_pipeline/"))
 
-from density_dashboard import compute_dashboard
+from density_dashboard import compute_dashboard, compute_bfe_fields
 from ios_nbody_sims import load_particle_data
 from compute_bfe_helpers import load_sheng24_exp_center
 from basis_utils import load_basis
@@ -124,19 +124,8 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
     original_dir = os.getcwd()
     
     try:
-        # Load particle data
-        print(f"Loading particle data for halo {halo_id:04d}...")
-        p = load_particle_data(
-            f"../suites/{suite}/data/Model_{halo_id:03d}/",
-            snapname="snapshot",
-            components=["MWhalo"],
-            nsnap=0,
-            suite=suite,
-            quantities=["pos", "mass", "pot"]
-        )
-        print(f"  Loaded MWhalo particles")
         
-        # Load centers
+        # Load sim centers
         print(f"Loading center data...")
         sim_centers = load_sheng24_exp_center(
             origin_dir="../data/",
@@ -168,24 +157,40 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
         
         # Create grid
         dbins = np.linspace(grid_range[0], grid_range[1], grid_bins)
-        grid = np.meshgrid(dbins, dbins, dbins)
+        grid_arrays = np.meshgrid(dbins, dbins, dbins, indexing='ij')
+        grid = np.stack(grid_arrays)
         print(f"Grid created: {grid_bins} x {grid_bins} x {grid_bins}")
         
+        # Compute BFE fields once (already evaluated for all times)
+        print(f"\nComputing BFE fields...")
+        dens_bfe_list, FP = compute_bfe_fields(grid, basis, coefs, times)
+        
+
         # Generate dashboards for each time snapshot
         print(f"\nGenerating dashboards for {len(times)} time snapshots...")
         for i in range(len(times)):
-            print(f"  Processing snapshot {i+1}/{len(times)} (t={times[i]:.2f} Gyr)...", end=" ")
+            print(f"Loading particle data for halo {halo_id:04d}...")
+            p = load_particle_data(
+                f"../suites/{suite}/data/Model_{halo_id:03d}/",
+                snapname="snapshot",
+                components=["MWhalo"],
+                nsnap=i,
+                suite=suite,
+                quantities=["pos", "mass", "pot"]
+            )
+            print(f"  Loaded MWhalo particles")
+        
+
+
             
             fig = compute_dashboard(
-                grid=grid,
-                basis=basis,
-                coefs=coefs,
-                times=times,
-                pos=p['MWhalo']['pos'],
+                FP=FP,
+                dens_bfe=dens_bfe_list[i],
+                pos=p['MWhalo']['pos']-sim_centers["mw_center"][i],
                 mass=p['MWhalo']['mass'],
-                rvir=rvir,
-                time_index=i
+                rvir=rvir
             )
+            
             
             # Add title
             fig.suptitle(f"Halo {halo_id:04d}; Time = {times[i]:.2f} Gyr", fontsize=12)
