@@ -1,0 +1,10 @@
+id: sphereSL
+parameters:
+  numr: 1000
+  rmin: 0.1
+  rmax: 500
+  Lmax: 12
+  nmax: 20
+  rmapping: 1.0
+  modelname: modelname_halo_2903.txt
+  cachename: cache_halo_2903.txt
