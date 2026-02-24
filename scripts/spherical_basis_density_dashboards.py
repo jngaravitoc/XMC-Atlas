@@ -145,7 +145,7 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
         print(f"  Basis loaded")
         
         # Load coefficients
-        coefs_file = f"../coefficients/halo_{halo_id:04d}_coefficients.h5"
+        coefs_file = f"../coefficients/halo_{halo_id:04d}_coefficients_center.h5"
         print(f"Loading coefficients from {coefs_file}...")
         coefs = pyEXP.coefs.Coefs.factory(coefs_file)
         times = coefs.Times()
@@ -165,7 +165,9 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
         print(f"\nComputing BFE fields...")
         dens_bfe_list, FP = compute_bfe_fields(grid, basis, coefs, times)
         
-
+        mise_dens = np.zeros(len(times))
+        mise_logdens = np.zeros(len(times))
+        mirse_dens = np.zeros(len(times))
         # Generate dashboards for each time snapshot
         print(f"\nGenerating dashboards for {len(times)} time snapshots...")
         for i in range(len(times)):
@@ -183,15 +185,18 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
 
 
             
-            fig = compute_dashboard(
+            fig, m1, m2, m3 = compute_dashboard(
                 FP=FP,
                 dens_bfe=dens_bfe_list[i],
                 pos=p['MWhalo']['pos']-sim_centers["mw_center"][i],
                 mass=p['MWhalo']['mass'],
-                rvir=rvir
+                rvir=rvir,
+                return_mises = True,
             )
             
-            
+            mise_dens[i] = np.mean(m1)
+            mise_logdens[i] = np.mean(m2) 
+            mirse_dens[i] = np.mean(m3) 
             # Add title
             fig.suptitle(f"Halo {halo_id:04d}; Time = {times[i]:.2f} Gyr", fontsize=12)
             
@@ -199,12 +204,12 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
             output_file = os.path.join(
                 original_dir,
                 output_dir,
-                f"halo_{halo_id:04d}_density_field_{i:03d}.png"
+                f"halo_{halo_id:04d}_density_field_center_{i:03d}.png"
             )
             fig.savefig(output_file, dpi=dpi, bbox_inches='tight')
             plt.close(fig)
             print(f"saved to {os.path.basename(output_file)}")
-        
+        np.savetxt(f"halo_{halo_id:04d}_mises.txt", np.array([mise_dens, mise_logdens, mirse_dens]).T)
         print(f"\nDashboards generated successfully!")
         print(f"Output files saved to: {os.path.join(original_dir, output_dir)}")
         
