@@ -18,6 +18,7 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
+import h5py
 try:
     import imageio
     HAS_IMAGEIO = True
@@ -89,6 +90,147 @@ def create_video_from_images(halo_id, output_dir, fps=10, video_filename=None):
         return None
 
 
+def write_fields(points, filename, grid=None, field_shape=None):
+    """
+    Write a ``fields.points`` dictionary to an HDF5 file.
+
+    The dictionary is expected to have the structure returned by
+    ``pyEXP.field.FieldGenerator.points``:
+
+    ::
+
+        {
+            time_0: {field_name: ndarray, ...},
+            time_1: {field_name: ndarray, ...},
+            ...
+        }
+
+    Each time snapshot is stored as a separate HDF5 group named after its
+    time value, and every field array is stored as a dataset inside that
+    group.
+
+    Parameters
+    ----------
+    points : dict
+        Nested dictionary ``{time: {field_name: ndarray, ...}, ...}``.
+    filename : str
+        Path to the output HDF5 file.
+    grid : array-like, optional
+        The grid used to compute the fields (e.g. the output of
+        ``np.meshgrid``).  If provided, its shape is stored in the file
+        header attribute ``grid_shape``.
+    field_shape : tuple of int, optional
+        Explicit shape to record in the file header attribute
+        ``field_shape``.  Ignored when *grid* is also given.
+    """
+    with h5py.File(filename, "w") as f:
+        # Store grid / field shape metadata in root attributes
+        if grid is not None:
+            f.attrs["grid_shape"] = np.asarray(grid).shape
+        elif field_shape is not None:
+            f.attrs["field_shape"] = np.asarray(field_shape)
+
+        for time, fields_dict in points.items():
+            grp = f.create_group(str(time))
+            for field_name, data in fields_dict.items():
+                grp.create_dataset(
+                    field_name,
+                    data=np.asarray(data),
+                    compression="gzip",
+                    compression_opts=4,
+                )
+    print(f"Fields written to {filename}")
+
+
+def read_fields(filename, field, time):
+    """
+    Read a single field array from an HDF5 file written by :func:`write_fields`.
+
+    If the file contains a ``grid_shape`` or ``field_shape`` attribute the
+    returned array is automatically reshaped to that shape.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the HDF5 file.
+    field : str
+        Name of the field dataset to read (e.g. ``'dens'``, ``'potl'``).
+    time : float or str
+        Time snapshot key.  Converted to ``str`` for the HDF5 group lookup.
+
+    Returns
+    -------
+    data : numpy.ndarray
+        The field array, reshaped to the stored grid/field shape when
+        available.
+    """
+    with h5py.File(filename, "r") as f:
+        data = np.array(f[str(time)][field])
+
+        if "grid_shape" in f.attrs:
+            data = data.reshape(f.attrs["grid_shape"])
+        elif "field_shape" in f.attrs:
+            data = data.reshape(f.attrs["field_shape"])
+
+    return data
+
+
+def compute_fields_in_grid(halo_id, grid_range=(-100, 100), grid_bins=20):
+    """
+    Load basis and coefficients for a halo, build a 3D grid, and compute
+    BFE density fields for every time snapshot.
+
+    This function expects the current working directory to already be
+    ``exp_expansions/basis/`` (it does **not** change directories itself).
+
+    Parameters
+    ----------
+    halo_id : int
+        The halo model ID (e.g., 108).
+    grid_range : tuple of float, optional
+        (min, max) extent of the Cartesian grid in kpc (default ``(-100, 100)``).
+    grid_bins : int, optional
+        Number of bins along each axis (default 20).
+
+    Returns
+    -------
+    dens_bfe_list : list
+        List of BFE density arrays, one per time snapshot.
+    FP : object
+        Field-point object returned by ``compute_bfe_fields``.
+    times : array-like
+        Array of time values for each snapshot.
+    """
+    # Load basis
+    config_name = f"basis_halo_{halo_id:04d}.yaml"
+    print(f"Loading basis from {config_name}...")
+    basis = load_basis(config_name)
+    print(f"  Basis loaded")
+
+    # Load coefficients
+    coefs_file = f"../coefficients/halo_{halo_id:04d}_coefficients_center.h5"
+    print(f"Loading coefficients from {coefs_file}...")
+    coefs = pyEXP.coefs.Coefs.factory(coefs_file)
+    times = coefs.Times()
+    print(f"  Found {len(times)} time snapshots")
+
+    # Print power information
+    power = coefs.Power()
+    print(f"  Power range: {power}")
+
+    # Create grid
+    dbins = np.linspace(grid_range[0], grid_range[1], grid_bins)
+    grid_arrays = np.meshgrid(dbins, dbins, dbins, indexing='ij')
+    grid = np.stack(grid_arrays)
+    print(f"Grid created: {grid_bins} x {grid_bins} x {grid_bins}")
+
+    # Compute BFE fields once (already evaluated for all times)
+    print(f"\nComputing BFE fields...")
+    dens_bfe_list, FP = compute_bfe_fields(grid, basis, coefs, times)
+
+    return dens_bfe_list, FP, times
+
+
 def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270, 
                         grid_range=(-100, 100), grid_bins=20, dpi=300, make_video=False, fps=10):
     """
@@ -138,32 +280,8 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
         # Change to expansion directory
         os.chdir("./exp_expansions/basis/")
         
-        # Load basis
-        config_name = f"basis_halo_{halo_id:04d}.yaml"
-        print(f"Loading basis from {config_name}...")
-        basis = load_basis(config_name)
-        print(f"  Basis loaded")
-        
-        # Load coefficients
-        coefs_file = f"../coefficients/halo_{halo_id:04d}_coefficients_center.h5"
-        print(f"Loading coefficients from {coefs_file}...")
-        coefs = pyEXP.coefs.Coefs.factory(coefs_file)
-        times = coefs.Times()
-        print(f"  Found {len(times)} time snapshots")
-        
-        # Print power information
-        power = coefs.Power()
-        print(f"  Power range: {power}")
-        
-        # Create grid
-        dbins = np.linspace(grid_range[0], grid_range[1], grid_bins)
-        grid_arrays = np.meshgrid(dbins, dbins, dbins, indexing='ij')
-        grid = np.stack(grid_arrays)
-        print(f"Grid created: {grid_bins} x {grid_bins} x {grid_bins}")
-        
-        # Compute BFE fields once (already evaluated for all times)
-        print(f"\nComputing BFE fields...")
-        dens_bfe_list, FP = compute_bfe_fields(grid, basis, coefs, times)
+        # Compute density fields
+        dens_bfe_list, FP, times = compute_fields_in_grid(halo_id, grid_range, grid_bins)
         
         mise_dens = np.zeros(len(times))
         mise_logdens = np.zeros(len(times))
@@ -194,9 +312,9 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
                 return_mises = True,
             )
             
-            mise_dens[i] = np.mean(m1)
-            mise_logdens[i] = np.mean(m2) 
-            mirse_dens[i] = np.mean(m3) 
+            mise_dens[i] = np.median(m1)
+            mise_logdens[i] = np.median(m2) 
+            mirse_dens[i] = np.median(m3) 
             # Add title
             fig.suptitle(f"Halo {halo_id:04d}; Time = {times[i]:.2f} Gyr", fontsize=12)
             
@@ -206,10 +324,16 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
                 output_dir,
                 f"halo_{halo_id:04d}_density_field_center_{i:03d}.png"
             )
+            
             fig.savefig(output_file, dpi=dpi, bbox_inches='tight')
             plt.close(fig)
             print(f"saved to {os.path.basename(output_file)}")
-        np.savetxt(f"halo_{halo_id:04d}_mises.txt", np.array([mise_dens, mise_logdens, mirse_dens]).T)
+        output_file_mises = os.path.join(
+            original_dir,
+            output_dir,
+            f"halo_{halo_id:04d}_mises.txt"
+        )
+        np.save(output_file_mises, np.array([mise_dens, mise_logdens, mirse_dens]).T)
         print(f"\nDashboards generated successfully!")
         print(f"Output files saved to: {os.path.join(original_dir, output_dir)}")
         
@@ -318,4 +442,4 @@ if __name__ == "__main__":
     main()
 
 
-    
+
