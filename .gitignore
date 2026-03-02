@@ -1,0 +1,12 @@
+# Data and output files
+*.png
+*.h5
+*.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
