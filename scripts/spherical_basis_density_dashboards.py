@@ -18,7 +18,6 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
-import h5py
 try:
     import imageio
     HAS_IMAGEIO = True
@@ -29,6 +28,7 @@ except ImportError:
 sys.path.append(os.path.join(os.path.dirname(__file__), "exp_pipeline/"))
 
 from density_dashboard import compute_dashboard, compute_bfe_fields
+from field_io import write_fields, read_fields
 from ios_nbody_sims import load_particle_data
 from compute_bfe_helpers import load_sheng24_exp_center
 from basis_utils import load_basis
@@ -90,91 +90,6 @@ def create_video_from_images(halo_id, output_dir, fps=10, video_filename=None):
         return None
 
 
-def write_fields(points, filename, grid=None, field_shape=None):
-    """
-    Write a ``fields.points`` dictionary to an HDF5 file.
-
-    The dictionary is expected to have the structure returned by
-    ``pyEXP.field.FieldGenerator.points``:
-
-    ::
-
-        {
-            time_0: {field_name: ndarray, ...},
-            time_1: {field_name: ndarray, ...},
-            ...
-        }
-
-    Each time snapshot is stored as a separate HDF5 group named after its
-    time value, and every field array is stored as a dataset inside that
-    group.
-
-    Parameters
-    ----------
-    points : dict
-        Nested dictionary ``{time: {field_name: ndarray, ...}, ...}``.
-    filename : str
-        Path to the output HDF5 file.
-    grid : array-like, optional
-        The grid used to compute the fields (e.g. the output of
-        ``np.meshgrid``).  If provided, its shape is stored in the file
-        header attribute ``grid_shape``.
-    field_shape : tuple of int, optional
-        Explicit shape to record in the file header attribute
-        ``field_shape``.  Ignored when *grid* is also given.
-    """
-    with h5py.File(filename, "w") as f:
-        # Store grid / field shape metadata in root attributes
-        if grid is not None:
-            f.attrs["grid_shape"] = np.asarray(grid).shape
-        elif field_shape is not None:
-            f.attrs["field_shape"] = np.asarray(field_shape)
-
-        for time, fields_dict in points.items():
-            grp = f.create_group(str(time))
-            for field_name, data in fields_dict.items():
-                grp.create_dataset(
-                    field_name,
-                    data=np.asarray(data),
-                    compression="gzip",
-                    compression_opts=4,
-                )
-    print(f"Fields written to {filename}")
-
-
-def read_fields(filename, field, time):
-    """
-    Read a single field array from an HDF5 file written by :func:`write_fields`.
-
-    If the file contains a ``grid_shape`` or ``field_shape`` attribute the
-    returned array is automatically reshaped to that shape.
-
-    Parameters
-    ----------
-    filename : str
-        Path to the HDF5 file.
-    field : str
-        Name of the field dataset to read (e.g. ``'dens'``, ``'potl'``).
-    time : float or str
-        Time snapshot key.  Converted to ``str`` for the HDF5 group lookup.
-
-    Returns
-    -------
-    data : numpy.ndarray
-        The field array, reshaped to the stored grid/field shape when
-        available.
-    """
-    with h5py.File(filename, "r") as f:
-        data = np.array(f[str(time)][field])
-
-        if "grid_shape" in f.attrs:
-            data = data.reshape(f.attrs["grid_shape"])
-        elif "field_shape" in f.attrs:
-            data = data.reshape(f.attrs["field_shape"])
-
-    return data
-
-
 def compute_fields_in_grid(halo_id, grid_range=(-100, 100), grid_bins=20):
     """
     Load basis and coefficients for a halo, build a 3D grid, and compute
@@ -200,6 +115,11 @@ def compute_fields_in_grid(halo_id, grid_range=(-100, 100), grid_bins=20):
         Field-point object returned by ``compute_bfe_fields``.
     times : array-like
         Array of time values for each snapshot.
+    points : dict
+        Nested dictionary ``{time: {field_name: ndarray, ...}, ...}``
+        returned by ``pyEXP.field.FieldGenerator.points``.
+    grid_arrays : list of ndarray
+        The 3-D meshgrid arrays (output of ``np.meshgrid``).
     """
     # Load basis
     config_name = f"basis_halo_{halo_id:04d}.yaml"
@@ -228,11 +148,23 @@ def compute_fields_in_grid(halo_id, grid_range=(-100, 100), grid_bins=20):
     print(f"\nComputing BFE fields...")
     dens_bfe_list, FP = compute_bfe_fields(grid, basis, coefs, times)
 
-    return dens_bfe_list, FP, times
+    # Compute full field-point dictionary (all quantities for all times)
+    nbins = grid_bins
+    mesh = np.zeros((nbins**3, 3))
+    mesh[:, 0] = grid_arrays[0].flatten()
+    mesh[:, 1] = grid_arrays[1].flatten()
+    mesh[:, 2] = grid_arrays[2].flatten()
+
+    field_gen = pyEXP.field.FieldGenerator(times, mesh)
+    points = field_gen.points(basis, coefs)
+    print("Field points computed")
+
+    return dens_bfe_list, FP, times, points, grid_arrays
 
 
 def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270, 
-                        grid_range=(-100, 100), grid_bins=20, dpi=300, make_video=False, fps=10):
+                        grid_range=(-100, 100), grid_bins=20, dpi=300, make_video=False, fps=10, 
+                        write_fields_file=True):
     """
     Generate density dashboard figures for a specified halo.
     
@@ -256,6 +188,8 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
         Whether to create an MP4 video from the frames (default is False).
     fps : int, optional
         Frames per second for video creation (default is 10).
+    write_fields_file : bool, optional
+        Whether to write the BFE fields to an HDF5 file (default is True).
     """
     
     # Create output directory if it doesn't exist
@@ -281,7 +215,17 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
         os.chdir("./exp_expansions/basis/")
         
         # Compute density fields
-        dens_bfe_list, FP, times = compute_fields_in_grid(halo_id, grid_range, grid_bins)
+        dens_bfe_list, FP, times, points, grid_arrays = compute_fields_in_grid(
+            halo_id, grid_range, grid_bins
+        )
+
+        # Write BFE fields to HDF5
+        if write_fields_file:
+            fields_file = os.path.join(
+                original_dir, output_dir,
+                f"halo_{halo_id:04d}_BFE_fields.h5"
+            )
+            write_fields(points, fields_file, grid=grid_arrays[0])
         
         mise_dens = np.zeros(len(times))
         mise_logdens = np.zeros(len(times))
@@ -423,6 +367,12 @@ Examples:
         help='Frames per second for video (default: 10)'
     )
     
+    parser.add_argument(
+        '--no_write_fields',
+        action='store_true',
+        help='Skip writing the BFE fields HDF5 file'
+    )
+    
     args = parser.parse_args()
     
     generate_dashboards(
@@ -434,7 +384,8 @@ Examples:
         grid_bins=args.grid_bins,
         dpi=args.dpi,
         make_video=args.make_video,
-        fps=args.fps
+        fps=args.fps,
+        write_fields_file=not args.no_write_fields
     )
 
 

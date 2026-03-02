@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
 """
-Build a basis expansion models
+Plotting helpers for density profile visualisation and BFE/KDE dashboards.
 """
 
-import os
-import sys
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.patches import Circle
 from EXPtools.visuals import use_exptools_style
-
-
-import pyEXP
-from metrics import mise, mirse
 
 def plot_profiles(radius, density, time, title='Profile Evolution',
                   r_fit=None, rho_fit=None, fit_label='Fit', filename=None):
@@ -93,68 +87,6 @@ def plot_profiles(radius, density, time, title='Profile Evolution',
 
     return fig, ax
 
-class FieldProjections:
-    def __init__(self, grid, basis, coefs, times):
-        self.grid = grid
-        self.basis = basis
-        self.coefs = coefs
-        self.times = times
-        assert np.shape(self.grid)[0] == 3
-        assert np.shape(self.grid)[1] == np.shape(self.grid)[2] == np.shape(self.grid)[3]
-        self.nbins = np.shape(self.grid)[1]
-        self.mesh = np.zeros((self.nbins**3, 3))
-        self.mesh[:,0] = self.grid[0].flatten()
-        self.mesh[:,1] = self.grid[1].flatten()
-        self.mesh[:,2] = self.grid[2].flatten()
-		
-    def compute_fields_in_points(self):
-        """
-        returns a dictionary 
-        times is an array with the time values
-        """
-        fields = pyEXP.field.FieldGenerator(self.times, self.mesh)
-        points = fields.points(self.basis, self.coefs)
-        return points
-
-    def twod_field(self, points, time, field):
-        """
-		Parameters:
-		time : float 
-			has to be in the list of times
-		field: list of strings conatining desired fields
-		"""
-        available_fields = ['azi force', 'dens', 'dens m=0', 
-							'dens m>0', 'mer force', 'potl', 
-							'potl m=0', 'potl m>0', 'rad force']
-		
-        if isinstance(field, str):
-            field = [field]
-		
-        for f in field:
-            if f not in available_fields:
-                raise ValueError("field value {} not available".format(f))
-
-        if time not in self.times:
-            raise ValueError("Requested time not in times")
-		
-        fields = []
-
-        for f in field:
-            field_arr = np.array(points[time][f]).reshape(self.nbins, self.nbins, self.nbins)
-            fields.append(field_arr)
-        return fields
-	
-    def kde_density(self, pos, mass, Ndens=64):
-        """
-        Ndens: n neighboors
-        """
-        kddens = pyEXP.util.KDdensity(mass = mass, pos = pos, Ndens = Ndens)
-        kd_dens = np.zeros(self.nbins**3)
-        for i in range(self.nbins**3):
-            kd_dens[i] = kddens.getDensityAtPoint(self.mesh[i,0], self.mesh[i,1], self.mesh[i,2])
-
-        return kd_dens.reshape(self.nbins, self.nbins, self.nbins)
-
 
 def density_dashboard(kd_dens, dens_bfe, mise_logdens, mirse_dens, rvir=300, mean_axis=0):
     """
@@ -201,8 +133,6 @@ def density_dashboard(kd_dens, dens_bfe, mise_logdens, mirse_dens, rvir=300, mea
     All panels use fixed color limits to enable visual comparison between
     reconstruction methods across different halos and simulations.
     """
-    
-    rvir = rvir
 
     # ---------- circle factory ----------
     def _make_r200_circle(radius, edgecolor='white', label=None):

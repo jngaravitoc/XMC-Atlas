@@ -3,7 +3,8 @@ import numpy as np
 
 sys.path.append("./exp_pipeline/")
 
-from plot_helpers import FieldProjections, density_dashboard
+from field_projections import FieldProjections
+from plot_helpers import density_dashboard
 from metrics import mise, mirse
 
 
@@ -116,7 +117,7 @@ def compute_dashboard(FP, dens_bfe, pos, mass, rvir, return_mises=False):
         rvir=rvir
     )
 
-    if return_mises == True:
+    if return_mises:
         return fig, mise_dens, mise_logdens, mirse_dens
     else:
         return fig
