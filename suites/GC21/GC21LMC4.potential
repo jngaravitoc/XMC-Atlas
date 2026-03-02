@@ -1,0 +1,15 @@
+class: CCompositePotential
+components:
+- class: HernquistPotential
+  name: halo
+  parameters: {c: 40.85, c_unit: kpc, m: 1570000000000.0, m_unit: solMass}
+  units: {angle: rad, length: kpc, mass: solMass, time: Gyr}
+- class: HernquistPotential
+  name: bulge
+  parameters: {c: 0.7, c_unit: kpc, m: 14000000000.0, m_unit: solMass}
+  units: {angle: rad, length: kpc, mass: solMass, time: Gyr}
+- class: MiyamotoNagaiPotential
+  name: disk
+  parameters: {a: 2.4, a_unit: kpc, b: 0.5, b_unit: kpc, m: 57800000000.0, m_unit: solMass}
+  units: {angle: rad, length: kpc, mass: solMass, time: Gyr}
+type: composite
