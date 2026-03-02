@@ -112,5 +112,8 @@ def mise_r(rho1, rho2, check_non_negative=True):
         if np.any(rho1 < 0) or np.any(rho2 < 0):
             raise ValueError("Density values must be non-negative")
 
-    return mise(rho1, rho2)
+    mise_radial_bins = np.zeros_like(rho1)
+    for i in range(len(rho1)):
+        mise_radial_bins[i] = mise(rho1[i], rho2[i])
+    return mise_radial_bins
 

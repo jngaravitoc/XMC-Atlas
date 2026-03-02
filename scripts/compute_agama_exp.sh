@@ -9,7 +9,7 @@ VALUES=(100 160 223 290 348 419 480 481 88 884 \
 #loop over values and create directories
 for val in "${VALUES[@]}"; do
     dir_name="suite_${val}"
-    mkdir -p "$dir_name"
+    mkdir -p "agama_expansions/$dir_name"
     echo "Created directory: $dir_name"
     python build_agama_expansion.py "$val" \
         --coefs_freq=1 \
