@@ -96,7 +96,7 @@ def main(
     outpath = "/n/nyx3/garavito/projects/XMC-Atlas/scripts/{}/".format(output_dir)
     
     basis_path = "/n/nyx3/garavito/projects/XMC-Atlas/scripts/exp_expansions/basis/"
-    coefs_filename = '{}_{:04d}_coefficients.h5'.format(component, SIM_ID)
+    coefs_filename = '{}_{:04d}_coefficients_center.h5'.format(component, SIM_ID)
     
     # --------------------------------------------------
     # Serial work on rank 0 only
@@ -161,7 +161,12 @@ def main(
 
     # Load basis (each rank loads independently to avoid pickling issues)
     os.chdir(basis_path)
-    config_name = f"basis_halo_{SIM_ID:04d}.yaml"
+    if compoenent == "halo":
+        config_name = f"basis_halo_{SIM_ID:04d}.yaml"
+    
+    elif compoenent == "MWbulge":
+        config_name = f"bulge_basis_0108.yaml"
+    
     if world_rank == 0:
         print(f"Loading basis from {config_name}...")
     basis = load_basis(config_name)
@@ -197,6 +202,7 @@ def main(
             print("computing coefficients in snap {}".format(i))
             snapshot = SNAPNAME + "{:03d}.hdf5".format(i)
             data = load_particle_data(SNAPSHOT_PATH, SNAPNAME, [comp], nsnap=i, suite=suite)
+            data[comp]["pos"] -= mw_center[i]
         else:
             data = None
         
@@ -253,7 +259,7 @@ def parse_args():
         "--coefs_freq",
         type=int,
         nargs="?",
-        default=10,
+        default=1,
         help="Number of coefficient samples (default: 10)",
     )
 	
