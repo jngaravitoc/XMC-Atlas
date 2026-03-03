@@ -117,7 +117,7 @@ def compute_fields_in_grid(halo_id, grid_range=(-100, 100), grid_bins=20):
         Array of time values for each snapshot.
     points : dict
         Nested dictionary ``{time: {field_name: ndarray, ...}, ...}``
-        returned by ``pyEXP.field.FieldGenerator.points``.
+        returned by ``compute_bfe_fields``.
     grid_arrays : list of ndarray
         The 3-D meshgrid arrays (output of ``np.meshgrid``).
     """
@@ -146,17 +146,7 @@ def compute_fields_in_grid(halo_id, grid_range=(-100, 100), grid_bins=20):
 
     # Compute BFE fields once (already evaluated for all times)
     print(f"\nComputing BFE fields...")
-    dens_bfe_list, FP = compute_bfe_fields(grid, basis, coefs, times)
-
-    # Compute full field-point dictionary (all quantities for all times)
-    nbins = grid_bins
-    mesh = np.zeros((nbins**3, 3))
-    mesh[:, 0] = grid_arrays[0].flatten()
-    mesh[:, 1] = grid_arrays[1].flatten()
-    mesh[:, 2] = grid_arrays[2].flatten()
-
-    field_gen = pyEXP.field.FieldGenerator(times, mesh)
-    points = field_gen.points(basis, coefs)
+    dens_bfe_list, FP, points = compute_bfe_fields(grid, basis, coefs, times)
     print("Field points computed")
 
     return dens_bfe_list, FP, times, points, grid_arrays
@@ -226,6 +216,7 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
                 f"halo_{halo_id:04d}_BFE_fields.h5"
             )
             write_fields(points, fields_file, grid=grid_arrays[0])
+            del points  # free memory after writing
         
         mise_dens = np.zeros(len(times))
         mise_logdens = np.zeros(len(times))
@@ -243,10 +234,15 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
                 quantities=["pos", "mass", "pot"]
             )
             print(f"  Loaded MWhalo particles")
-        
 
+            kde_output_file = None
+            if write_fields_file:
+                kde_output_file = os.path.join(
+                    original_dir,
+                    output_dir,
+                    f"halo_{halo_id:04d}_kde_density_{i:03d}.h5"
+                )
 
-            
             fig, m1, m2, m3 = compute_dashboard(
                 FP=FP,
                 dens_bfe=dens_bfe_list[i],
@@ -254,6 +250,8 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
                 mass=p['MWhalo']['mass'],
                 rvir=rvir,
                 return_mises = True,
+                kde_filename=kde_output_file,
+                snapshot_name=f"snapshot_{i:03d}",
             )
             
             mise_dens[i] = np.median(m1)
@@ -275,7 +273,7 @@ def generate_dashboards(halo_id, output_dir, suite="Sheng24", rvir=270,
         output_file_mises = os.path.join(
             original_dir,
             output_dir,
-            f"halo_{halo_id:04d}_mises.txt"
+            f"halo_{halo_id:04d}_mises.npy"
         )
         np.save(output_file_mises, np.array([mise_dens, mise_logdens, mirse_dens]).T)
         print(f"\nDashboards generated successfully!")
