@@ -2,6 +2,14 @@
 *.png
 *.h5
 *.txt
+*.hdf5
+*.bak
+*.cache
+*.ini
+*.pdf
+*.npz
+*.code-workspace
+*.zip
 
 # Python
 __pycache__/
