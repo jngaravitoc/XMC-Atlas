@@ -185,7 +185,7 @@ def density_dashboard(kd_dens, dens_bfe, mise_logdens, mirse_dens, rvir=300, mea
     im3 = ax[1,0].imshow(
         np.log10(mirse_dens.T),
         extent=[-300, 300, -300, 300],
-        cmap='RdBu_r', vmin=-1.6, vmax=1.6
+        cmap='RdBu_r', vmin=-1.0, vmax=0.5
     )
     ax[1,0].set_xlim(-300, 300)
     ax[1,0].set_ylim(-300, 300)
@@ -195,13 +195,13 @@ def density_dashboard(kd_dens, dens_bfe, mise_logdens, mirse_dens, rvir=300, mea
     cax = divider.append_axes("right", size="5%", pad=0.05)
     fig.colorbar(im3, cax=cax)
 
-    ax[1,0].set_title(r'$\rm{Log_{10}}$\ MIRSE ($\rho$)')
+    ax[1,0].set_title(r'$\rm{Log_{10}}\ $ MIRSE ($\rho$)')
 
     # ====== MISE ======
     im4 = ax[1,1].imshow(
         mise_logdens.T,
         extent=[-300, 300, -300, 300],
-        cmap='gist_heat_r', vmin=0, vmax=0.2
+        cmap='gist_heat_r', vmin=0, vmax=0.1
     )
     ax[1,1].set_xlim(-300, 300)
     ax[1,1].set_ylim(-300, 300)
