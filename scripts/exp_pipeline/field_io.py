@@ -3,6 +3,9 @@
 HDF5 I/O utilities for BFE field dictionaries.
 """
 
+import glob
+import os
+
 import numpy as np
 import h5py
 
@@ -145,5 +148,106 @@ def read_kde_density(filename):
 
         if "grid_shape" in attrs:
             data = data.reshape(attrs["grid_shape"])
+
+    return data, attrs
+
+
+def merge_kde_density_files(pattern, output_filename):
+    """Merge per-snapshot KDE density HDF5 files into a single file.
+
+    Each input file is expected to have been written by
+    :func:`write_kde_density` and must contain a ``kde_density`` dataset
+    and header attributes (``grid_shape``, ``snapshot_name``, ``Ndens``).
+
+    The merged file stores one HDF5 group per snapshot (named after the
+    ``snapshot_name`` attribute) containing the density dataset.  Common
+    header attributes (``grid_shape``, ``Ndens``) are stored as root-level
+    attributes.
+
+    Parameters
+    ----------
+    pattern : str
+        Glob pattern matching the per-snapshot files, e.g.
+        ``"output/halo_0100_kde_density_*.h5"``.
+    output_filename : str
+        Path to the merged output HDF5 file.
+
+    Examples
+    --------
+    >>> merge_kde_density_files(
+    ...     "output/halo_0100_kde_density_*.h5",
+    ...     "output/halo_0100_kde_density.h5",
+    ... )
+    """
+    files = sorted(glob.glob(pattern))
+    if not files:
+        raise FileNotFoundError(f"No files matched pattern: {pattern}")
+
+    with h5py.File(output_filename, "w") as fout:
+        for i, filepath in enumerate(files):
+            data, attrs = read_kde_density(filepath)
+            snapshot_name = str(attrs.get("snapshot_name", f"snapshot_{i:03d}"))
+
+            # Write root-level attributes once (from first file)
+            if i == 0:
+                fout.attrs["grid_shape"] = np.asarray(attrs["grid_shape"])
+                fout.attrs["Ndens"] = attrs["Ndens"]
+                fout.attrs["n_snapshots"] = len(files)
+
+            grp = fout.create_group(snapshot_name)
+            grp.attrs["snapshot_name"] = snapshot_name
+            grp.attrs["source_file"] = os.path.basename(filepath)
+            grp.create_dataset(
+                "kde_density",
+                data=data,
+                compression="gzip",
+                compression_opts=4,
+            )
+
+    print(f"Merged {len(files)} KDE density files into {output_filename}")
+
+
+def read_merged_kde_density(filename, snapshot=None):
+    """Read density arrays from a merged KDE density HDF5 file.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the merged HDF5 file created by
+        :func:`merge_kde_density_files`.
+    snapshot : str or int or None, optional
+        If ``None`` (default), return all snapshots as a dict.
+        If a string, return the density array for that snapshot group.
+        If an int, return the density array for the *n*-th group
+        (sorted alphabetically).
+
+    Returns
+    -------
+    data : ndarray or dict
+        If *snapshot* is given, a single density array.  Otherwise a
+        dictionary ``{snapshot_name: ndarray, ...}``.
+    attrs : dict
+        Root-level header attributes.
+    """
+    with h5py.File(filename, "r") as f:
+        attrs = {key: f.attrs[key] for key in f.attrs}
+        grid_shape = tuple(attrs.get("grid_shape", ()))
+        groups = sorted([k for k in f.keys()])
+
+        if snapshot is not None:
+            if isinstance(snapshot, int):
+                snapshot = groups[snapshot]
+            snapshot = str(snapshot)
+            data = np.array(f[snapshot]["kde_density"])
+            if grid_shape:
+                data = data.reshape(grid_shape)
+            return data, attrs
+
+        data = {}
+        for name in groups:
+            arr = np.array(f[name]["kde_density"])
+            if grid_shape:
+                arr = arr.reshape(grid_shape)
+            data[name] = arr
 
     return data, attrs
