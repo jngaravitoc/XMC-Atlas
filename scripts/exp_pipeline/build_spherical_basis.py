@@ -57,7 +57,7 @@ def main(
     ncoefs, 
     fit_type='median', 
     compute_mise=False, 
-    output_dir='test_108'):
+    output_dir='/n/nyx3/garavito/projects/XMC-Atlas/exp_expansions'):
     """
     Build the spherical basis for the specified simulation/component.
     Parameters
@@ -88,7 +88,10 @@ def main(
 
     nsnap = 0  # ??
 
-    outpath = "/n/nyx3/garavito/projects/XMC-Atlas/scripts/{}/".format(output_dir)
+    basis_path = os.path.join(output_dir, "basis") + "/"
+    coefs_path = os.path.join(output_dir, "coefficients") + "/"
+    os.makedirs(basis_path, exist_ok=True)
+    os.makedirs(coefs_path, exist_ok=True)
     
     figure_name = '{}_{:04d}_density_profile_evolution.png'.format(component, SIM_ID)
     particle_profiles_filename = "{}_{:04d}_density_profiles_sheng24.h5".format(component, SIM_ID)
@@ -205,7 +208,7 @@ def main(
         snaps=np.arange(0, NSNAPS, 1), 
         rbins=r_bins_part,
         profiles=rho_part_all,
-        filename=outpath+particle_profiles_filename)
+        filename=basis_path+particle_profiles_filename)
 
     if paranoid == True: 
         check_center, fail_ids = check_monotonic_profiles(rho_part_all[:,:10])
@@ -252,7 +255,7 @@ def main(
             r_fit = r_bins_part,
             rho_fit = rho_fit,
             title=f"{component} {SIM_ID} density profile", 
-            filename=outpath+figure_name)
+            filename=basis_path+figure_name)
    
     
     #------------------------------------------
@@ -280,12 +283,12 @@ def main(
         r_basis, 
         rho_fit, 
         Mtotal=1, 
-        model_output = outpath,
+        model_output = basis_path,
         basis_params= basis_config,
-        basis_filename = outpath+basis_filenames)
+        basis_filename = basis_path+basis_filenames)
 
     # move to outopath folder
-    os.chdir(outpath)
+    os.chdir(basis_path)
     basis = pyEXP.basis.Basis.factory(bconfig)
     # move back to original path 
     os.chdir(cwd_path)
@@ -325,11 +328,11 @@ def main(
             data[comp],
             basis,
             component,
-            outpath+coefs_filename,
+            coefs_path+coefs_filename,
             unit_system=units)
     
     #Read coefficients
-    coefs = pyEXP.coefs.Coefs.factory(outpath+coefs_filename)
+    coefs = pyEXP.coefs.Coefs.factory(coefs_path+coefs_filename)
     coefs_times = coefs.Times()
    
 
@@ -355,7 +358,7 @@ def main(
         snaps=np.arange(0, NSNAPS, 1), 
         rbins=r_bins_part, 
         profiles=rho_bfe_t,
-        filename=outpath+bfe_profiles_filename)
+        filename=basis_path+bfe_profiles_filename)
 
     if compute_mise == True:
         all_mise_r = np.zeros_like(rho_bfe_t)
@@ -421,8 +424,8 @@ def parse_args():
         "--output_dir",
         type=str,
         nargs="?",
-        default="test_halo_108",
-        help="Directory output name for datasets"
+        default="/n/nyx3/garavito/projects/XMC-Atlas/exp_expansions",
+        help="Root output directory (basis/ and coefficients/ subdirs created automatically)"
     )
 
     return parser.parse_args()
