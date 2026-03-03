@@ -29,6 +29,7 @@ import nba
 # BFE local libraries
 THIS_DIR = Path(__file__).resolve().parent
 sys.path.append(str(THIS_DIR / "exp_pipeline"))
+sys.path.append(str(THIS_DIR / "exp_fields"))
 sys.path.append(str(THIS_DIR / "agama_pipeline"))
 
 from ios_nbody_sims import load_particle_data

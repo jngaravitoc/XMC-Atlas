@@ -26,6 +26,7 @@ except ImportError:
 
 # Add exp_pipeline to path
 sys.path.append(os.path.join(os.path.dirname(__file__), "exp_pipeline/"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "exp_fields/"))
 
 from density_dashboard import compute_dashboard, compute_bfe_fields
 from field_io import write_fields, read_fields

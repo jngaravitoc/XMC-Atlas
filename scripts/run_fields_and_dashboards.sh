@@ -18,7 +18,7 @@ mkdir -p "$OUTPUT_DIR"
 run_fields() {
     local halo_id=$1
     echo "Starting field computation for halo_id: $halo_id"
-    python compute_fields.py \
+    python exp_fields/compute_fields.py \
         --halo_id "$halo_id" \
         --output_dir "$OUTPUT_DIR"
     echo "Finished field computation for halo_id: $halo_id"
@@ -45,7 +45,7 @@ echo "Generating dashboards..."
 run_dashboard() {
     local halo_id=$1
     echo "Starting dashboard for halo_id: $halo_id"
-    python make_dashboard.py \
+    python exp_fields/make_dashboard.py \
         --halo_id "$halo_id" \
         --output_dir "$OUTPUT_DIR" \
         --make_video

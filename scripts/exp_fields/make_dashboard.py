@@ -28,8 +28,10 @@ try:
 except ImportError:
     HAS_IMAGEIO = False
 
-# Add exp_pipeline to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "exp_pipeline/"))
+# Add sibling directories to path
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _THIS_DIR)
+sys.path.append(os.path.join(_THIS_DIR, "../exp_pipeline/"))
 
 from field_io import read_fields, read_merged_kde_density
 from plot_helpers import density_dashboard

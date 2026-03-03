@@ -30,6 +30,7 @@ from mpi4py import MPI
 # BFE local libraries
 THIS_DIR = Path(__file__).resolve().parent
 sys.path.append(str(THIS_DIR / "exp_pipeline"))
+sys.path.append(str(THIS_DIR / "exp_fields"))
 
 from ios_nbody_sims import load_particle_data
 from plot_helpers import plot_profiles
