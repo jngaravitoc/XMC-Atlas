@@ -41,6 +41,8 @@ from basis_utils import load_basis
 
 import pyEXP
 
+_EXP_ROOT = "/n/nyx3/garavito/projects/XMC-Atlas/exp_expansions"
+
 
 # ------------------------------------------------------------------
 # Core computation functions
@@ -70,8 +72,7 @@ def compute_bfe_fields(grid, basis, coefs, eval_times):
         ``{time: {field_name: ndarray, ...}, ...}`` — full field
         dictionary returned by ``pyEXP.field.FieldGenerator.points``.
     """
-    times = coefs.Times()
-    FP = FieldProjections(grid, basis, coefs, times)
+    FP = FieldProjections(grid, basis, coefs, eval_times)
 
     print("Computing EXP fields...")
     points = FP.compute_fields_in_points()
@@ -83,11 +84,9 @@ def compute_bfe_fields(grid, basis, coefs, eval_times):
     return dens_bfe_list, FP, points
 
 
-def compute_fields_in_grid(halo_id, grid_range=(-100, 100), grid_bins=20):
+def compute_BFE_fields_in_grid(halo_id, grid_range=(-100, 100), grid_bins=20,
+                           basis_dir=None, coefs_dir=None):
     """Load basis/coefficients, build a grid, and compute BFE fields.
-
-    This function expects the current working directory to already be
-    ``exp_expansions/basis/``.
 
     Parameters
     ----------
@@ -97,6 +96,12 @@ def compute_fields_in_grid(halo_id, grid_range=(-100, 100), grid_bins=20):
         ``(min, max)`` extent in kpc (default ``(-100, 100)``).
     grid_bins : int, optional
         Number of bins per axis (default 20).
+    basis_dir : str, optional
+        Absolute path to the basis directory
+        (default ``/n/nyx3/garavito/projects/XMC-Atlas/exp_expansions/basis``).
+    coefs_dir : str, optional
+        Absolute path to the coefficients directory
+        (default ``/n/nyx3/garavito/projects/XMC-Atlas/exp_expansions/coefficients``).
 
     Returns
     -------
@@ -106,14 +111,22 @@ def compute_fields_in_grid(halo_id, grid_range=(-100, 100), grid_bins=20):
     points : dict
     grid_arrays : list of ndarray
     """
-    # Load basis
-    config_name = f"basis_halo_{halo_id:04d}.yaml"
+    if basis_dir is None:
+        basis_dir = os.path.join(_EXP_ROOT, "basis")
+    if coefs_dir is None:
+        coefs_dir = os.path.join(_EXP_ROOT, "coefficients")
+
+    # Load basis (chdir needed — pyEXP reads cache files relative to cwd)
+    cwd_save = os.getcwd()
+    os.chdir(basis_dir)
+    config_name = os.path.join(basis_dir, f"basis_halo_{halo_id:04d}.yaml")
     print(f"Loading basis from {config_name}...")
     basis = load_basis(config_name)
+    os.chdir(cwd_save)
     print("  Basis loaded")
 
     # Load coefficients
-    coefs_file = f"../coefficients/halo_{halo_id:04d}_coefficients_center.h5"
+    coefs_file = os.path.join(coefs_dir, f"halo_{halo_id:04d}_coefficients_center.h5")
     print(f"Loading coefficients from {coefs_file}...")
     coefs = pyEXP.coefs.Coefs.factory(coefs_file)
     times = coefs.Times()
@@ -149,7 +162,7 @@ def _existing_time_keys(filename):
 
 
 def compute_all_bfe_fields(halo_id, output_dir, grid_range=(-100, 100),
-                           grid_bins=20):
+                           grid_bins=20, basis_dir=None, coefs_dir=None):
     """Compute BFE fields for every snapshot and write to HDF5.
 
     If the output file already exists, snapshots whose time keys are
@@ -161,6 +174,8 @@ def compute_all_bfe_fields(halo_id, output_dir, grid_range=(-100, 100),
     output_dir : str
     grid_range : tuple of float, optional
     grid_bins : int, optional
+    basis_dir : str, optional
+    coefs_dir : str, optional
 
     Returns
     -------
@@ -174,8 +189,8 @@ def compute_all_bfe_fields(halo_id, output_dir, grid_range=(-100, 100),
     )
 
     # Compute all fields (needed in memory for dashboards later)
-    dens_bfe_list, FP, times, points, grid_arrays = compute_fields_in_grid(
-        halo_id, grid_range, grid_bins
+    dens_bfe_list, FP, times, points, grid_arrays = compute_BFE_fields_in_grid(
+        halo_id, grid_range, grid_bins, basis_dir=basis_dir, coefs_dir=coefs_dir
     )
 
     # Determine which times still need writing
@@ -218,9 +233,14 @@ def compute_all_bfe_fields(halo_id, output_dir, grid_range=(-100, 100),
 # KDE field computation (with per-snapshot skip + final merge)
 # ------------------------------------------------------------------
 
-def compute_all_kde_fields(halo_id, output_dir, FP, times, sim_centers,
+def compute_all_kde_fields(halo_id, output_dir, sim_centers,
+                           grid_range=(-100, 100), grid_bins=20,
+                           basis_dir=None, coefs_dir=None,
                            suite="Sheng24", Ndens=64):
     """Compute KDE density for every snapshot and write per-snapshot HDF5.
+
+    Builds its own grid and :class:`FieldProjections` internally so that
+    it can run independently of the BFE computation.
 
     Existing per-snapshot files are detected and skipped.  After all
     snapshots are processed the individual files are merged into a single
@@ -230,13 +250,40 @@ def compute_all_kde_fields(halo_id, output_dir, FP, times, sim_centers,
     ----------
     halo_id : int
     output_dir : str
-    FP : FieldProjections
-    times : array-like
     sim_centers : dict
         Must contain ``"mw_center"`` array.
+    grid_range : tuple of float, optional
+    grid_bins : int, optional
+    basis_dir : str, optional
+    coefs_dir : str, optional
     suite : str, optional
     Ndens : int, optional
     """
+    if basis_dir is None:
+        basis_dir = os.path.join(_EXP_ROOT, "basis")
+    if coefs_dir is None:
+        coefs_dir = os.path.join(_EXP_ROOT, "coefficients")
+
+    # Load basis
+    cwd_save = os.getcwd()
+    os.chdir(basis_dir)
+    config_name = os.path.join(basis_dir, f"basis_halo_{halo_id:04d}.yaml")
+    print(f"Loading basis from {config_name}...")
+    basis = load_basis(config_name)
+    os.chdir(cwd_save)
+
+    # Load coefficients
+    coefs_file = os.path.join(coefs_dir, f"halo_{halo_id:04d}_coefficients_center.h5")
+    print(f"Loading coefficients from {coefs_file}...")
+    coefs = pyEXP.coefs.Coefs.factory(coefs_file)
+    times = coefs.Times()
+
+    # Build grid and FieldProjections
+    dbins = np.linspace(grid_range[0], grid_range[1], grid_bins)
+    grid_arrays = np.meshgrid(dbins, dbins, dbins, indexing="ij")
+    grid = np.stack(grid_arrays)
+    FP = FieldProjections(grid, basis, coefs, times)
+
     per_snap_pattern = os.path.join(
         output_dir, f"halo_{halo_id:04d}_kde_density_*.h5"
     )
@@ -244,6 +291,8 @@ def compute_all_kde_fields(halo_id, output_dir, FP, times, sim_centers,
         output_dir, f"halo_{halo_id:04d}_kde_density.h5"
     )
 
+    assert len(times) == len(sim_centers["mw_center"]), \
+        f"Number of times ({len(times)}) != number of centres ({len(sim_centers['mw_center'])})"
     for i in range(len(times)):
         snap_file = os.path.join(
             output_dir, f"halo_{halo_id:04d}_kde_density_{i:03d}.h5"
@@ -304,51 +353,46 @@ def run(halo_id, output_dir, suite="Sheng24",
     Ndens : int, optional
         Number of KDE neighbours (default 64).
     """
+    basis_dir = os.path.join(_EXP_ROOT, "basis")
+    coefs_dir = os.path.join(_EXP_ROOT, "coefficients")
+
     os.makedirs(output_dir, exist_ok=True)
     print(f"Output directory: {output_dir}")
+    print(f"Basis directory:  {basis_dir}")
+    print(f"Coefs directory:  {coefs_dir}")
 
-    original_dir = os.getcwd()
     abs_output_dir = os.path.abspath(output_dir)
 
-    try:
-        # Load simulation centres
-        print("Loading centre data...")
-        sim_centers = load_sheng24_exp_center(
-            origin_dir="../suites/Sheng24/orbits",
-            centers_filename="MW_LMC_orbits_iso.txt",
-            sim_id=halo_id,
-            return_vel=True,
+    # Load simulation centres
+    print("Loading centre data...")
+    sim_centers = load_sheng24_exp_center(
+        origin_dir="../suites/Sheng24/orbits",
+        centers_filename="MW_LMC_orbits_iso.txt",
+        sim_id=halo_id,
+        return_vel=True,
+    )
+    print("  Centre data loaded")
+
+    # --- BFE fields ---
+    if not skip_bfe:
+        print("\n=== Computing BFE fields ===")
+        compute_all_bfe_fields(
+            halo_id, abs_output_dir, grid_range, grid_bins,
+            basis_dir=basis_dir, coefs_dir=coefs_dir,
         )
-        print("  Centre data loaded")
 
-        # Move into expansion directory
-        os.chdir("./exp_expansions/basis/")
+    # --- KDE fields ---
+    if not skip_kde:
+        print("\n=== Computing KDE fields ===")
+        compute_all_kde_fields(
+            halo_id, abs_output_dir, sim_centers,
+            grid_range=grid_range, grid_bins=grid_bins,
+            basis_dir=basis_dir, coefs_dir=coefs_dir,
+            suite=suite, Ndens=Ndens,
+        )
 
-        # --- BFE fields ---
-        if not skip_bfe:
-            print("\n=== Computing BFE fields ===")
-            _dens, FP, times, _grids = compute_all_bfe_fields(
-                halo_id, abs_output_dir, grid_range, grid_bins
-            )
-        else:
-            # Still need FP & times for KDE; compute in-memory only
-            _, FP, times, _, _ = compute_fields_in_grid(
-                halo_id, grid_range, grid_bins
-            )
-
-        # --- KDE fields ---
-        if not skip_kde:
-            print("\n=== Computing KDE fields ===")
-            compute_all_kde_fields(
-                halo_id, abs_output_dir, FP, times, sim_centers,
-                suite=suite, Ndens=Ndens,
-            )
-
-        print("\nField computation complete.")
-        print(f"Output files in: {abs_output_dir}")
-
-    finally:
-        os.chdir(original_dir)
+    print("\nField computation complete.")
+    print(f"Output files in: {abs_output_dir}")
 
 
 # ------------------------------------------------------------------
