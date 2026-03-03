@@ -3,8 +3,9 @@ import sys
 import numpy as np
 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(_THIS_DIR, "exp_pipeline/"))
-sys.path.append(os.path.join(_THIS_DIR, "exp_fields/"))
+sys.path.insert(0, _THIS_DIR)
+sys.path.append(os.path.join(_THIS_DIR, "../exp_pipeline/"))
+sys.path.append(os.path.join(_THIS_DIR, "../exp_fields/"))
 
 from field_projections import FieldProjections
 from field_io import write_kde_density

@@ -45,7 +45,7 @@ echo "Generating dashboards..."
 run_dashboard() {
     local halo_id=$1
     echo "Starting dashboard for halo_id: $halo_id"
-    python exp_fields/make_dashboard.py \
+    python exp_visuals/make_dashboard.py \
         --halo_id "$halo_id" \
         --output_dir "$OUTPUT_DIR" \
         --make_video

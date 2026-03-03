@@ -24,9 +24,11 @@ try:
 except ImportError:
     HAS_IMAGEIO = False
 
-# Add exp_pipeline to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "exp_pipeline/"))
-sys.path.append(os.path.join(os.path.dirname(__file__), "exp_fields/"))
+# Add sibling directories to path
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _THIS_DIR)
+sys.path.append(os.path.join(_THIS_DIR, "../exp_pipeline/"))
+sys.path.append(os.path.join(_THIS_DIR, "../exp_fields/"))
 
 from density_dashboard import compute_dashboard, compute_bfe_fields
 from field_io import write_fields, read_fields

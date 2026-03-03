@@ -30,6 +30,7 @@ import nba
 THIS_DIR = Path(__file__).resolve().parent
 sys.path.append(str(THIS_DIR / "exp_pipeline"))
 sys.path.append(str(THIS_DIR / "exp_fields"))
+sys.path.append(str(THIS_DIR / "exp_visuals"))
 
 from ios_nbody_sims import load_particle_data
 from plot_helpers import plot_profiles
