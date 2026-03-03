@@ -1,0 +1,279 @@
+"""
+Pipeline to compute optimal basis for the Sheng+24 simulation suite.
+
+Author: github.com/jngaravitoc
+
+Usage: python build_basis.py sim_id halo_component
+
+TODO:
+    [] Why does the MW halo density profile is cored in BFE and not in particle data?
+    [] Implement functionality to output log file
+    [] Organize output files into folders 
+    [] Why LMC's basis is not working?
+    [] Optimize fit params for bulge and LMC
+        - [] Chose amplitude best init amplitude for bulge and LMC's halos in the fit
+    [] Check if functions are well distributed across scripts
+    [] Complete Pipeline tests
+
+"""
+
+import os
+import sys
+import numpy as np
+import matplotlib.pyplot as plt
+from pathlib import Path
+import argparse
+# third-party
+import pyEXP
+import nba
+from mpi4py import MPI
+# BFE local libraries
+THIS_DIR = Path(__file__).resolve().parent
+sys.path.append(str(THIS_DIR / "exp_pipeline"))
+
+from ios_nbody_sims import load_particle_data
+from plot_helpers import plot_profiles
+from fit_density import fit_profile, fit_density_profile
+from basis_utils import make_basis, load_basis
+from basis_fidelity import bfe_density_profiles, mise_r 
+from data_products import write_density_profiles
+from sanity_checks import check_monotonic_profiles, check_monotonic_contiguous_snapshots
+from compute_bfe_helpers import load_sheng24_exp_center, get_snapshot_suffixes
+
+
+def make_density_profile(pos, mass, r_edges):
+    """
+    TODO: this profile is constructed by building the data.
+    try this also by using KDTREE
+    """
+    profile = nba.structure.Profiles(pos, r_edges)
+    r_profile, dens_profile = profile.density(mass=mass)
+    return r_profile, dens_profile
+
+def main(
+    SIM_ID, 
+    comp, 
+    ncoefs, 
+    output_dir='exp_expansions/coefficients',
+    paranoid=True):
+    """
+    Build the spherical basis for the specified simulation/component.
+    Parameters
+	----------
+	SIM_ID : int
+		Simulation ID.
+	component : str
+		Galaxy component (e.g., 'halo').
+	ncoefs : int
+		Number of coefficient samples.
+	fit_type : str, optional
+		Method for fitting coefficients (default: 'median').
+	compute_mise : bool, optional
+		Whether to compute the MISE (default: False).
+    """
+    # --------------------------------------------------
+    # MPI setup
+    # --------------------------------------------------
+    world_comm = MPI.COMM_WORLD
+    world_size = world_comm.Get_size()
+    world_rank = world_comm.Get_rank()
+    
+    # PATHS:
+    suite = "Sheng24"
+    if suite == "Sheng24":
+        SNAPSHOT_PATH = "/n/nyx3/garavito/XMC-Atlas-sims/Sheng/Model_{}".format(SIM_ID)
+        softening = 0.6 # TODO:implement this in plots!!
+        SNAPNAME = "snapshot"
+        SIM_PARAMS_PATH = '/n/nyx3/garavito/projects/XMC-Atlas/suites/Sheng24/orbits'
+        SIM_PARAMS_FILE = 'MW_LMC_orbits_iso.txt'
+    
+    else:
+        softening = None
+        raise ValueError(f"Suite {suite} not implemented")
+
+    nsnap = 0  # ??
+
+    outpath = "/n/nyx3/garavito/projects/XMC-Atlas/scripts/{}/".format(output_dir)
+    
+    basis_path = "/n/nyx3/garavito/projects/XMC-Atlas/scripts/exp_expansions/basis/"
+    coefs_filename = '{}_{:04d}_coefficients.h5'.format(comp, SIM_ID)
+    
+    # --------------------------------------------------
+    # Serial work on rank 0 only
+    # --------------------------------------------------
+    if world_rank == 0:
+        print("[Rank 0] Loading simulation parameters...")
+    
+    if world_rank == 0:
+        sim_params = load_sheng24_exp_center(
+            SIM_PARAMS_PATH, 
+            SIM_PARAMS_FILE,
+            SIM_ID, return_vel=False)
+    else:
+        sim_params = None
+    
+    # Broadcast simulation parameters to all ranks
+    sim_params = world_comm.bcast(sim_params, root=0)
+
+    tsim = sim_params['time']
+    mw_center = sim_params['mw_center']
+    
+    if world_rank == 0:
+        snap_suffixes = get_snapshot_suffixes(SNAPSHOT_PATH, prefix=SNAPNAME+"_")
+        NSNAPS = len(snap_suffixes)
+        
+        if paranoid == True:
+            snap_check, missing_snaps = check_monotonic_contiguous_snapshots(snap_suffixes)
+            print(f"[paranoid] {NSNAPS} snapshots found in {SNAPSHOT_PATH}")
+            print(f"[paranoid] Snapshots are monotonic:", snap_check)
+            if snap_check == False:
+                print(f"[error] snapshots {missing_snaps} are missing")
+            assert NSNAPS == len(tsim), "number of snapshots found differ from size of centers"
+    else:
+        snap_suffixes = None
+        NSNAPS = None
+    
+    # Broadcast snapshot info to all ranks
+    snap_suffixes = world_comm.bcast(snap_suffixes, root=0)
+    NSNAPS = world_comm.bcast(NSNAPS, root=0)
+    
+    # Synchronize all ranks
+    world_comm.Barrier()
+    
+    #------------------------------------------
+    #--------------------------
+    # 1. Load basis  
+    # -------------------------
+
+    # Load basis (each rank loads independently to avoid pickling issues)
+    if world_rank == 0:
+        os.chdir("/n/nyx3/garavito/projects/XMC-Atlas/scripts/test_disk_108")
+        disk_config="""
+---
+id: cylinder
+parameters:
+  acyl: 3.8
+  hcyl: 0.28
+  mmax: 6
+  nmax: 24
+  nmaxfid: 24
+  lmaxfid: 24
+  ncylodd: 12
+  ncylnx: 16
+  ncylny: 16
+  rnum: 200
+  pnum: 0
+  tnum: 40
+  vflag: 0
+  logr: false
+  cachename: cache_disk.sheng24
+...
+"""
+        basis = pyEXP.basis.Basis.factory(disk_config)
+    # Synchronize all ranks after basis loading
+    world_comm.Barrier()
+	 
+
+    from exp_coefficients import compute_exp_coefs_parallel
+
+    # TODO check if we need this?
+    #compname = "MWhalo"
+    #runtag   = 'run1'
+    #time     = 0.0
+
+    #basis.enableCoefCovariance(pcavar=True, nsamples=100, covar=True)
+    #basis.writeCoefCovariance(compname, runtag, time)
+
+    # --------------------------------------------------
+    # Parallel coefficient computation
+    # --------------------------------------------------
+    gadget_particle_mass = 1e10
+    units = [('mass', 'Msun', gadget_particle_mass),
+             ('length', 'kpc', 1.0),
+             ('velocity', 'km/s', 1.0),
+             ('G', 'mixed', 43007.1)]
+
+    for i in range(0, NSNAPS, ncoefs):
+        # Load particle data on rank 0 only
+        if world_rank == 0:
+            print("computing coefficients in snap {}".format(i))
+            snapshot = SNAPNAME + "{:03d}.hdf5".format(i)
+            data = load_particle_data(SNAPSHOT_PATH, SNAPNAME, [comp], nsnap=i, suite=suite)
+            data[comp]["pos"] -= mw_center[i]
+        else:
+            data = None
+        
+        # Broadcast particle data to all ranks
+        data = world_comm.bcast(data, root=0)
+        
+        # All ranks compute coefficients in parallel
+        compute_exp_coefs_parallel(
+            data[comp],
+            basis,
+            comp,
+            outpath+coefs_filename,
+            unit_system=units)
+        
+        if world_rank == 0:
+            print("Done computing coefficients in snap {}".format(i))
+    
+    # Synchronize before reading results
+    world_comm.Barrier()
+    
+    # Read coefficients (rank 0 only)
+    if world_rank == 0:
+        coefs = pyEXP.coefs.Coefs.factory(outpath+coefs_filename)
+        coefs_times = coefs.Times()
+    else:
+        coefs = None
+        coefs_times = None
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Build spherical basis functions for extrnal simulations."
+    )
+
+    # Positional arguments
+    parser.add_argument(
+        "sim_id",
+        type=int,
+        nargs="?",
+        default=100,
+        help="Simulation ID (default: 108)",
+    )
+    
+	# Optional arguments
+    parser.add_argument(
+        "--coefs_freq",
+        type=int,
+        nargs="?",
+        default=1,
+        help="Number of coefficient samples (default: 1)",
+    )
+	
+    # Optional arguments
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        nargs="?",
+        default="exp_expansions/coefficients/",
+        
+    )
+
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+
+    args = parse_args()
+
+    main(
+        SIM_ID=args.sim_id,
+        comp="MWdisk",
+        ncoefs=args.coefs_freq,
+        output_dir=args.output_dir,
+    )
+
+    
