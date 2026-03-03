@@ -4,6 +4,7 @@ import numpy as np
 sys.path.append("./exp_pipeline/")
 
 from field_projections import FieldProjections
+from field_io import write_kde_density
 from plot_helpers import density_dashboard
 from metrics import mise, mirse
 
@@ -33,9 +34,10 @@ def compute_bfe_fields(grid, basis, coefs, eval_times):
     for t in eval_times:
         fields.append(FP.twod_field(points, t, 'dens')[0])
 
-    return fields, FP
+    return fields, FP, points
 
-def compute_dashboard(FP, dens_bfe, pos, mass, rvir, return_mises=False):
+def compute_dashboard(FP, dens_bfe, pos, mass, rvir, return_mises=False,
+                      kde_filename=None, snapshot_name=None, Ndens=64):
     """
     Compute KDE/BFE density comparison dashboard.
 
@@ -85,8 +87,17 @@ def compute_dashboard(FP, dens_bfe, pos, mass, rvir, return_mises=False):
     # 1. KDE density
     # --------------------------------------------------
     print("Computing KDE density...")
-    kd_dens = FP.kde_density(pos, mass)
+    kd_dens = FP.kde_density(pos, mass, Ndens=Ndens)
     kd_dens_3d = kd_dens.reshape(nbins, nbins, nbins)
+
+    if kde_filename is not None:
+        write_kde_density(
+            kd_dens_3d,
+            filename=kde_filename,
+            grid_shape=kd_dens_3d.shape,
+            snapshot_name=snapshot_name or "",
+            Ndens=Ndens,
+        )
 
 
     # --------------------------------------------------
