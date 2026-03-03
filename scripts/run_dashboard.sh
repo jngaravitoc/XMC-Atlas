@@ -17,7 +17,7 @@ mkdir -p "$OUTPUT_DIR"
 run_dashboard() {
     local halo_id=$1
     echo "Starting halo_id: $halo_id"
-    python spherical_basis_density_dashboards.py \
+    python exp_visuals/spherical_basis_density_dashboards.py \
         --halo_id "$halo_id" \
         --output_dir "$OUTPUT_DIR" \
         --make_video

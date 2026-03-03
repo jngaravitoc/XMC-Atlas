@@ -6,6 +6,9 @@ import pyEXP
 import nba
 import gala.potential as gp
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../exp_fields"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../exp_visuals"))
+
 from plot_helpers import plot_profiles
 from fit_density import fit_profile, fit_density_profile
 from basis_utils import make_basis
