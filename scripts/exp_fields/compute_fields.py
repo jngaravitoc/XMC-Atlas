@@ -366,7 +366,7 @@ def run(halo_id, output_dir, suite="Sheng24",
     # Load simulation centres
     print("Loading centre data...")
     sim_centers = load_sheng24_exp_center(
-        origin_dir="../suites/Sheng24/orbits",
+        origin_dir="suites/Sheng24/orbits",
         centers_filename="MW_LMC_orbits_iso.txt",
         sim_id=halo_id,
         return_vel=True,

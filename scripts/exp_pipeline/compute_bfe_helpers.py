@@ -126,6 +126,10 @@ def load_GC21_exp_center(origin_dir, simulation_filename, suite, component, retu
         return density_center
 
 def load_sheng24_exp_center(origin_dir, centers_filename, sim_id, return_vel=False):
+    # Resolve relative paths against the project root (two levels up from this file)
+    if not os.path.isabs(origin_dir):
+        _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        origin_dir = os.path.join(_PROJECT_ROOT, origin_dir)
     sim_params_file = os.path.join(origin_dir, centers_filename)
     sim_params = np.loadtxt(sim_params_file, skiprows=1)
     id_sim = sim_params[:,0].astype(int)
