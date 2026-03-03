@@ -10,12 +10,18 @@ VALUES=(100 160 223 290 348 419 480 481 88 884 \
 MAX_JOBS=30
 OUTPUT_DIR="exp_expansions/figures/density_fields/"
 
+# Clear shared matplotlib tex cache to avoid race conditions
+rm -rf ~/.cache/matplotlib/tex.cache*
+
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
 # Function to run dashboard for a single halo
 run_dashboard() {
     local halo_id=$1
+    # Isolate matplotlib cache per worker to prevent parallel tex.cache races
+    export MPLCONFIGDIR="/tmp/mpl_cache_${halo_id}"
+    mkdir -p "$MPLCONFIGDIR"
     echo "Starting halo_id: $halo_id"
     python exp_visuals/spherical_basis_density_dashboards.py \
         --halo_id "$halo_id" \
