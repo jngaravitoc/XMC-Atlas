@@ -88,3 +88,62 @@ def read_fields(filename, field, time):
             data = data.reshape(f.attrs["field_shape"])
 
     return data
+
+
+def write_kde_density(kd_dens, filename, grid_shape, snapshot_name, Ndens=64):
+    """
+    Write a KDE density field to an HDF5 file.
+
+    Parameters
+    ----------
+    kd_dens : ndarray, shape (nbins, nbins, nbins)
+        KDE density array returned by
+        :meth:`~field_projections.FieldProjections.kde_density`.
+    filename : str
+        Path to the output HDF5 file.
+    grid_shape : tuple of int
+        Shape of the 3-D grid, e.g. ``(nbins, nbins, nbins)``.
+    snapshot_name : str
+        Identifier of the snapshot used to compute the density field.
+    Ndens : int, optional
+        Number of nearest neighbours used in the KDE (default 64).
+    """
+    with h5py.File(filename, "w") as f:
+        f.attrs["grid_shape"] = np.asarray(grid_shape)
+        f.attrs["snapshot_name"] = snapshot_name
+        f.attrs["Ndens"] = Ndens
+
+        f.create_dataset(
+            "kde_density",
+            data=np.asarray(kd_dens),
+            compression="gzip",
+            compression_opts=4,
+        )
+    print(f"KDE density written to {filename}")
+
+
+def read_kde_density(filename):
+    """
+    Read a KDE density field from an HDF5 file written by
+    :func:`write_kde_density`.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the HDF5 file.
+
+    Returns
+    -------
+    kd_dens : ndarray
+        The density array, reshaped to the stored ``grid_shape``.
+    attrs : dict
+        Header attributes (``grid_shape``, ``snapshot_name``, ``Ndens``).
+    """
+    with h5py.File(filename, "r") as f:
+        data = np.array(f["kde_density"])
+        attrs = {key: f.attrs[key] for key in f.attrs}
+
+        if "grid_shape" in attrs:
+            data = data.reshape(attrs["grid_shape"])
+
+    return data, attrs
