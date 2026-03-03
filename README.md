@@ -23,5 +23,6 @@ To contribute, please make a pull request (PR) including the following informati
 -------------
 
 - Nico Garavito-Camargo
+- Arpit Arora
 - Sophia Lilleengen
 - Mike Petersen
