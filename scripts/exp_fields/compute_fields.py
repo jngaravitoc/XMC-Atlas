@@ -41,7 +41,7 @@ from basis_utils import load_basis
 
 import pyEXP
 
-_EXP_ROOT = "/n/nyx3/garavito/projects/XMC-Atlas/exp_expansions"
+_EXP_ROOT = "/n/nyx3/garavito/projects/XMC-Atlas/scripts/exp_expansions"
 
 
 # ------------------------------------------------------------------

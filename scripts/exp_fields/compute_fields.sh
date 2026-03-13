@@ -17,7 +17,7 @@ VALUES=(100 160 223 290 348 419 480 481 88 884 \
         4181 4797 4807 4822 1500 3372 4110 770 1000 355)
 
 # ---------- Configuration ----------
-MAX_JOBS=11
+MAX_JOBS=30
 OUTPUT_DIR="/n/nyx3/garavito/projects/XMC-Atlas/scripts/exp_expansions/density_fields/"
 SUITE="Sheng24"
 GRID_RANGE="-300 300"
