@@ -2,9 +2,113 @@
 """
 Grid-based field evaluation and KDE density computation using pyEXP.
 """
-
+import os
+import sys
 import numpy as np
 import pyEXP
+from field_io import read_bfe_fields, read_merged_kde_density
+
+sys.path.append("../")
+from config import DENSITY_FIELDS_PATHS, EXP_EXPANSIONS_PATH
+sys.path.append("../exp_pipeline")
+import metrics
+
+class FieldsQuality:
+    """
+    Class for evaluating the quality of BFE (Basis Function Expansion) field reconstructions
+    by comparing them to KDE (Kernel Density Estimation) density fields using various error metrics.
+
+    Parameters
+    ----------
+    halo_id : int or str
+        Identifier for the halo whose fields are being analyzed.
+    field_type : str, optional
+        The type of field to analyze (default is 'dens').
+    """
+
+    def __init__(self, halo_id, field_type='dens'):
+        """
+        Initialize the FieldsQuality object with file paths and time keys for the given halo.
+
+        Parameters
+        ----------
+        halo_id : int or str
+            Identifier for the halo whose fields are being analyzed.
+        field_type : str, optional
+            The type of field to analyze (default is 'dens').
+        """
+        self.field_type = field_type
+
+        fields_BFE_filename = "halo_{}_BFE_fields.h5"
+        fields_KDE_filename = "halo_{}_kde_density.h5"
+
+        self.bfe_fields_file = os.path.join(DENSITY_FIELDS_PATHS, 
+                                    fields_BFE_filename.format(str(halo_id)))
+
+        self.kde_fields_file = os.path.join(DENSITY_FIELDS_PATHS, 
+                                    fields_KDE_filename.format(str(halo_id)))
+
+        coefs_file = os.path.join(EXP_EXPANSIONS_PATH, 
+                                    "halo_{}_coefficients_center.h5".format(str(halo_id)))
+        # Use the correct coefs_file for time keys
+        self.time_keys = pyEXP.coefs.Coefs.factory(coefs_file).Times()
+
+    def metrics_evolution(self):
+        """
+        Compute the evolution of error metrics (MISE, log-MISE, MIRSE and their variances)
+        between BFE and KDE density fields over all available snapshots.
+
+        Returns
+        -------
+        dict
+            Dictionary containing arrays for each metric across snapshots:
+            'mise_median', 'mise_log_median', 'mirse_median',
+            'mise_var', 'mise_log_var', 'mirse_var'.
+        """
+        kde_data, _kde_attrs = read_merged_kde_density(self.kde_fields_file)
+        kde_snapshots = sorted(kde_data.keys())
+
+        n_snaps = min(len(self.time_keys), len(kde_snapshots))
+    
+        mise_dens_arr = np.zeros(n_snaps)
+        mise_logdens_arr = np.zeros(n_snaps)
+        mirse_dens_arr = np.zeros(n_snaps)
+        mise_dens_var = np.zeros(n_snaps)
+        mise_logdens_var = np.zeros(n_snaps)
+        mirse_dens_var = np.zeros(n_snaps)
+
+        for i in range(n_snaps):
+            t_key = self.time_keys[i]
+            t_val = float(t_key)
+            snap_key = kde_snapshots[i]
+
+            # Read BFE density for this snapshot
+            dens_bfe = read_bfe_fields(self.bfe_fields_file, "dens", t_val)
+
+            # KDE density
+            kd_dens = kde_data[snap_key]
+
+            # Error metrics
+            mise_val = metrics.mise(dens_bfe, kd_dens, axis=0)
+            mise_log = metrics.mise(np.log10(dens_bfe), np.log10(kd_dens), axis=0)
+            mirse_val = metrics.mirse(dens_bfe, kd_dens, axis=0)
+
+            mise_dens_arr[i] = np.median(mise_val)
+            mise_logdens_arr[i] = np.median(mise_log)
+            mirse_dens_arr[i] = np.median(mirse_val)
+            mise_dens_var[i] = np.var(mise_val)
+            mise_logdens_var[i] = np.var(mise_log)
+            mirse_dens_var[i] = np.var(mirse_val)
+
+        return {
+            'mise_median': mise_dens_arr,
+            'mise_log_median': mise_logdens_arr,
+            'mirse_median': mirse_dens_arr,
+            'mise_var': mise_dens_var,
+            'mise_log_var': mise_logdens_var,
+            'mirse_var': mirse_dens_var,
+        }
+
 
 
 class FieldProjections:
