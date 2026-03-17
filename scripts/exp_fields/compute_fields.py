@@ -303,7 +303,7 @@ def compute_all_kde_fields(halo_id, output_dir, sim_centers,
 
         print(f"Loading particle data for snapshot {i:03d}...")
         p = load_particle_data(
-            f"/n/nyx3/garavito/XMC-Atlas-sims/Sheng/Model_{halo_id:03d}",
+            f"/n/nyx3/garavito/XMC-Atlas-sims/Sheng/Model_{halo_id}",
             snapname="snapshot",
             components=["MWhalo"],
             nsnap=i,
