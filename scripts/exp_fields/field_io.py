@@ -60,7 +60,7 @@ def write_fields(points, filename, grid=None, field_shape=None):
     print(f"Fields written to {filename}")
 
 
-def read_fields(filename, field, time):
+def read_bfe_fields(filename, field, time):
     """
     Read a single field array from an HDF5 file written by :func:`write_fields`.
 
