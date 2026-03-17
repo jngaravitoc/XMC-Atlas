@@ -39,17 +39,17 @@ class FieldsQuality:
         """
         self.field_type = field_type
 
-        fields_BFE_filename = "halo_{}_BFE_fields.h5"
-        fields_KDE_filename = "halo_{}_kde_density.h5"
+        fields_BFE_filename = "halo_{:04d}_BFE_fields.h5"
+        fields_KDE_filename = "halo_{:04d}_kde_density.h5"
 
         self.bfe_fields_file = os.path.join(DENSITY_FIELDS_PATHS, 
-                                    fields_BFE_filename.format(str(halo_id)))
+                                    fields_BFE_filename.format(halo_id))
 
         self.kde_fields_file = os.path.join(DENSITY_FIELDS_PATHS, 
-                                    fields_KDE_filename.format(str(halo_id)))
+                                    fields_KDE_filename.format(halo_id))
 
-        coefs_file = os.path.join(EXP_EXPANSIONS_PATH, 
-                                    "halo_{}_coefficients_center.h5".format(str(halo_id)))
+        coefs_file = os.path.join(EXP_EXPANSIONS_PATH, "coefficients", 
+                                    "halo_{:04d}_coefficients_center.h5".format(halo_id))
         # Use the correct coefs_file for time keys
         self.time_keys = pyEXP.coefs.Coefs.factory(coefs_file).Times()
 

@@ -11,20 +11,15 @@ VALUES=(100 160 223 290 348 419 480 481 88 884 \
 run_fields() {
     local halo_id=$1
 
-    python compute_fields.py \
-        --halo_id "$halo_id" \
+    python evaluate_fields_quality.py \
+        "$halo_id"
 }
 
 export -f run_fields
-export OUTPUT_DIR SUITE GRID_RANGE GRID_BINS NDENS SKIP_BFE SKIP_KDE
 
-# Run all values in parallel with job limit
+# Run all values sequentially
 for halo_id in "${VALUES[@]}"; do
-    while [ $(jobs -r -p | wc -l) -ge $MAX_JOBS ]; do
-        sleep 5
-    done
-    run_fields "$halo_id" &
+    echo "Running halo ${halo_id}..."
+    run_fields "$halo_id"
 done
 
-wait
-echo "All field computations completed!"

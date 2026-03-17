@@ -56,6 +56,6 @@ def compute_halos_fields_quality(halo_ids):
     print(f"Metrics for halos {halo_ids} written to {output_file}")
 
 if __name__ == "__main__":
-    halo = int(sys.argv[0])
-    compute_halos_fields_quality(halo_ids=halo)
+    halo = int(sys.argv[1])
+    compute_halos_fields_quality(halo_ids=[halo])
 

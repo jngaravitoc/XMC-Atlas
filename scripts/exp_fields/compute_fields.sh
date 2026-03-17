@@ -12,10 +12,10 @@
 #   --Ndens N                KDE neighbour count (default: 64)
 #set -e
 
-VALUES=(100 160 223 290 348 419 480 481 88 884 \
-        1585 1603 2240 2242 2259 2903 3468 3499 4159 4163 \
-        4181 4797 4807 4822 1500 3372 4110 770 1000 355)
-
+#VALUES=(100 160 223 290 348 419 480 481 88 884 \
+#       1585 1603 2240 2242 2259 2903 3468 3499 4159 4163 \
+#       4181 4797 4807 4822 1500 3372 4110 770 1000 355)
+VALUES=(4822)
 # ---------- Configuration ----------
 MAX_JOBS=30
 OUTPUT_DIR="/n/nyx3/garavito/projects/XMC-Atlas/scripts/exp_expansions/density_fields/"
@@ -24,10 +24,10 @@ GRID_RANGE="-300 300"
 GRID_BINS=20
 NDENS=64
 # Set to "--skip_bfe" or "--skip_kde" to skip; leave empty to compute both
-SKIP_BFE="--skip_bfe"
-SKIP_KDE=""
+#SKIP_BFE="--skip_bfe"
+SKIP_BFE=""
+SKIP_KDE="--skip_kde"
 # ------------------------------------
-
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
