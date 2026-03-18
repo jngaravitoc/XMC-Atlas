@@ -31,6 +31,9 @@ THIS_DIR = Path(__file__).resolve().parent
 sys.path.append(str(THIS_DIR / "exp_pipeline"))
 sys.path.append(str(THIS_DIR / "exp_fields"))
 sys.path.append(str(THIS_DIR / "exp_visuals"))
+sys.path.append("../")
+
+from config import EXP_EXPANSIONS_PATH, SIMULATIONS_PATH, SIMS_PARAMS_PATH
 
 from ios_nbody_sims import load_particle_data
 from plot_helpers import plot_profiles
@@ -40,6 +43,9 @@ from basis_fidelity import bfe_density_profiles, mise_r
 from data_products import write_density_profiles
 from sanity_checks import check_monotonic_profiles, check_monotonic_contiguous_snapshots
 from compute_bfe_helpers import load_sheng24_exp_center, get_snapshot_suffixes
+
+
+
 
 
 def make_density_profile(pos, mass, r_edges):
@@ -57,7 +63,7 @@ def main(
     ncoefs, 
     fit_type='median', 
     compute_mise=False, 
-    output_dir='/n/nyx3/garavito/projects/XMC-Atlas/exp_expansions'):
+    output_dir=EXP_EXPANSIONS_PATH):
     """
     Build the spherical basis for the specified simulation/component.
     Parameters
@@ -76,10 +82,9 @@ def main(
     # PATHS:
     suite = "Sheng24"
     if suite == "Sheng24":
-        SNAPSHOT_PATH = "/n/nyx3/garavito/XMC-Atlas-sims/Sheng/Model_{}".format(SIM_ID)
+        SNAPSHOT_PATH = os.path.join(SIMULATIONS_PATH, "Sheng/Model_{}".format(SIM_ID))
         softening = 0.6 # TODO:implement this in plots!!
         SNAPNAME = "snapshot"
-        SIM_PARAMS_PATH = '/n/nyx3/garavito/projects/XMC-Atlas/suites/Sheng24/orbits'
         SIM_PARAMS_FILE = 'MW_LMC_orbits_iso.txt'
     
     else:
@@ -128,9 +133,7 @@ def main(
     elif component == 'halo':
         nbins_basis = 1000
     
-    lmax = int(1)
-    nmax = int(10)
-    rmapping = 1.0
+
     
     #--------------------------
     # Pipeline params:
@@ -163,9 +166,15 @@ def main(
     elif component == "lmc":
         comp = "LMChalo"
         exp_center = lmc_center
+        lmax = int(6)
+        nmax = int(12)
+        rmapping = 1.0
     elif component == "bulge":
         comp = "MWbulge"
         exp_center = mw_center
+        lmax = int(4)
+        nmax = int(10)
+        rmapping = 1.0
     
     print("-> Done loading simulation centers")
 
@@ -232,9 +241,9 @@ def main(
     
     # TODO: do the fit for the mean
     if fit_type  == 'mean':
-        rho_to_fit = np.mean(rho_part_all)
-    if fit_type == 'median':
-        rho_to_fit = np.median(rho_part_all)
+        rho_to_fit = np.mean(rho_part_all, axis=0)
+    elif fit_type == 'median':
+        rho_to_fit = np.median(rho_part_all, axis=0)
     elif fit_type == 'initial':
         rho_to_fit = rho_part_all[0]
     elif fit_type == 'final':
