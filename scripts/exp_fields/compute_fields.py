@@ -84,7 +84,7 @@ def compute_bfe_fields(grid, basis, coefs, eval_times):
     return dens_bfe_list, FP, points
 
 
-def compute_BFE_fields_in_grid(halo_id, grid_range=(-100, 100), grid_bins=20,
+def compute_BFE_fields_in_grid(halo_id, component, grid_range=(-100, 100), grid_bins=20,
                            basis_dir=None, coefs_dir=None):
     """Load basis/coefficients, build a grid, and compute BFE fields.
 
@@ -119,14 +119,20 @@ def compute_BFE_fields_in_grid(halo_id, grid_range=(-100, 100), grid_bins=20,
     # Load basis (chdir needed — pyEXP reads cache files relative to cwd)
     cwd_save = os.getcwd()
     os.chdir(basis_dir)
-    config_name = os.path.join(basis_dir, f"basis_halo_{halo_id:04d}.yaml")
-    print(f"Loading basis from {config_name}...")
-    basis = load_basis(config_name)
-    os.chdir(cwd_save)
-    print("  Basis loaded")
 
     # Load coefficients
-    coefs_file = os.path.join(coefs_dir, f"halo_{halo_id:04d}_coefficients_center.h5")
+    # MWhalo coefs
+    if component == 'MWhalo':
+        config_name = os.path.join(basis_dir, f"basis_halo_{halo_id:04d}.yaml")
+        coefs_file = os.path.join(coefs_dir, f"halo_{halo_id:04d}_coefficients_center.h5")
+    elif component == 'lmc':
+        config_name = os.path.join(basis_dir, f"basis_init_lmc_{halo_id:04d}.yaml")
+        coefs_file = os.path.join(coefs_dir, f"lmc_init_{halo_id:04d}_coefficients.h5")
+    
+    print(f"Loading basis from {config_name}...")
+    basis = load_basis(config_name)
+    print("  Basis loaded")
+    os.chdir(cwd_save)
     print(f"Loading coefficients from {coefs_file}...")
     coefs = pyEXP.coefs.Coefs.factory(coefs_file)
     times = coefs.Times()
@@ -161,7 +167,7 @@ def _existing_time_keys(filename):
         return set(f.keys())
 
 
-def compute_all_bfe_fields(halo_id, output_dir, grid_range=(-100, 100),
+def compute_all_bfe_fields(halo_id, component, output_dir, grid_range=(-100, 100),
                            grid_bins=20, basis_dir=None, coefs_dir=None):
     """Compute BFE fields for every snapshot and write to HDF5.
 
@@ -190,7 +196,7 @@ def compute_all_bfe_fields(halo_id, output_dir, grid_range=(-100, 100),
 
     # Compute all fields (needed in memory for dashboards later)
     dens_bfe_list, FP, times, points, grid_arrays = compute_BFE_fields_in_grid(
-        halo_id, grid_range, grid_bins, basis_dir=basis_dir, coefs_dir=coefs_dir
+        halo_id, component, grid_range, grid_bins, basis_dir=basis_dir, coefs_dir=coefs_dir
     )
 
     # Determine which times still need writing
@@ -233,7 +239,7 @@ def compute_all_bfe_fields(halo_id, output_dir, grid_range=(-100, 100),
 # KDE field computation (with per-snapshot skip + final merge)
 # ------------------------------------------------------------------
 
-def compute_all_kde_fields(halo_id, output_dir, sim_centers,
+def compute_all_kde_fields(halo_id, component, output_dir, sim_centers,
                            grid_range=(-100, 100), grid_bins=20,
                            basis_dir=None, coefs_dir=None,
                            suite="Sheng24", Ndens=64):
@@ -267,13 +273,29 @@ def compute_all_kde_fields(halo_id, output_dir, sim_centers,
     # Load basis
     cwd_save = os.getcwd()
     os.chdir(basis_dir)
-    config_name = os.path.join(basis_dir, f"basis_halo_{halo_id:04d}.yaml")
+
+    if component == "MWhalo":
+        config_name = os.path.join(basis_dir, f"basis_halo_{halo_id:04d}.yaml")
+        # Load coefficients
+        coefs_file = os.path.join(coefs_dir, f"halo_{halo_id:04d}_coefficients_center.h5")
+        per_snap_pattern = os.path.join(output_dir, f"halo_{halo_id:04d}_kde_density_*.h5")
+        merged_file = os.path.join(output_dir, f"halo_{halo_id:04d}_kde_density.h5")
+        output_filename = f"lmc_init_{halo_id:04d}_kde_densit"
+        compname = f"halo"
+
+    elif component == "lmc":
+        config_name = os.path.join(basis_dir, f"basis_init_lmc_{halo_id:04d}.yaml")
+        # Load coefficients
+        coefs_file = os.path.join(coefs_dir, f"lmc_init_{halo_id:04d}_coefficients.h5")
+        per_snap_pattern = os.path.join(output_dir, f"lmc_init_{halo_id:04d}_kde_density_*.h5")
+        merged_file = os.path.join(output_dir, f"lmc_init_{halo_id:04d}_kde_density.h5")
+        compname = f"lmc_init"
+    
     print(f"Loading basis from {config_name}...")
     basis = load_basis(config_name)
     os.chdir(cwd_save)
 
     # Load coefficients
-    coefs_file = os.path.join(coefs_dir, f"halo_{halo_id:04d}_coefficients_center.h5")
     print(f"Loading coefficients from {coefs_file}...")
     coefs = pyEXP.coefs.Coefs.factory(coefs_file)
     times = coefs.Times()
@@ -284,35 +306,39 @@ def compute_all_kde_fields(halo_id, output_dir, sim_centers,
     grid = np.stack(grid_arrays)
     FP = FieldProjections(grid, basis, coefs, times)
 
-    per_snap_pattern = os.path.join(
-        output_dir, f"halo_{halo_id:04d}_kde_density_*.h5"
-    )
-    merged_file = os.path.join(
-        output_dir, f"halo_{halo_id:04d}_kde_density.h5"
-    )
-
     assert len(times) == len(sim_centers["mw_center"]), \
         f"Number of times ({len(times)}) != number of centres ({len(sim_centers['mw_center'])})"
     for i in range(len(times)):
         snap_file = os.path.join(
-            output_dir, f"halo_{halo_id:04d}_kde_density_{i:03d}.h5"
+            output_dir, f"{compname}_{halo_id:04d}_kde_density_{i:03d}.h5"
         )
         if os.path.isfile(snap_file):
-            print(f"  snapshot {i:03d} KDE already exists — skipping")
+            print(f"snapshot {i:03d} KDE already exists — skipping")
             continue
 
         print(f"Loading particle data for snapshot {i:03d}...")
-        p = load_particle_data(
-            f"/n/nyx3/garavito/XMC-Atlas-sims/Sheng/Model_{halo_id}",
-            snapname="snapshot",
-            components=["MWhalo"],
-            nsnap=i,
-            suite=suite,
-            quantities=["pos", "mass"],
-        )
-
-        pos = p["MWhalo"]["pos"] - sim_centers["mw_center"][i]
-        mass = p["MWhalo"]["mass"]
+        if component == "MWhalo":
+            p = load_particle_data(
+                f"/n/nyx3/garavito/XMC-Atlas-sims/Sheng/Model_{halo_id}",
+                snapname="snapshot",
+                components=[component],
+                nsnap=i,
+                suite=suite,
+                quantities=["pos", "mass"],
+            )
+            pos = p[component]["pos"] - sim_centers["mw_center"][i]
+            mass = p[component]["mass"]
+        elif component == "lmc":
+            p = load_particle_data(
+                f"/n/nyx3/garavito/XMC-Atlas-sims/Sheng/Model_{halo_id}",
+                snapname="snapshot",
+                components=["LMChalo"],
+                nsnap=i,
+                suite=suite,
+                quantities=["pos", "mass"],
+            )
+            pos = p["LMChalo"]["pos"] - sim_centers["lmc_center"][i]
+            mass = p["LMChalo"]["mass"]
 
         print(f"  Computing KDE density (Ndens={Ndens})...")
         kd_dens = FP.kde_density(pos, mass, Ndens=Ndens)
@@ -334,7 +360,7 @@ def compute_all_kde_fields(halo_id, output_dir, sim_centers,
 # Top-level driver
 # ------------------------------------------------------------------
 
-def run(halo_id, output_dir, suite="Sheng24",
+def run(halo_id, output_dir, component, suite="Sheng24",
         grid_range=(-100, 100), grid_bins=20,
         skip_bfe=False, skip_kde=False, Ndens=64):
     """Compute and write BFE and/or KDE fields for a halo.
@@ -377,7 +403,7 @@ def run(halo_id, output_dir, suite="Sheng24",
     if not skip_bfe:
         print("\n=== Computing BFE fields ===")
         compute_all_bfe_fields(
-            halo_id, abs_output_dir, grid_range, grid_bins,
+            halo_id, component, abs_output_dir, grid_range, grid_bins,
             basis_dir=basis_dir, coefs_dir=coefs_dir,
         )
 
@@ -385,7 +411,7 @@ def run(halo_id, output_dir, suite="Sheng24",
     if not skip_kde:
         print("\n=== Computing KDE fields ===")
         compute_all_kde_fields(
-            halo_id, abs_output_dir, sim_centers,
+            halo_id, component, abs_output_dir, sim_centers,
             grid_range=grid_range, grid_bins=grid_bins,
             basis_dir=basis_dir, coefs_dir=coefs_dir,
             suite=suite, Ndens=Ndens,
@@ -415,6 +441,8 @@ Examples:
                         help="Halo model ID (e.g. 108)")
     parser.add_argument("--output_dir", type=str, required=True,
                         help="Directory for output HDF5 files")
+    parser.add_argument("--component", type=str, required=True,
+                        help="component (e.g. lmc, MWhalo, MWbulge)")
     parser.add_argument("--suite", type=str, default="Sheng24",
                         help="Simulation suite name (default: Sheng24)")
     parser.add_argument("--grid_range", type=float, nargs=2,
@@ -433,6 +461,7 @@ Examples:
     run(
         halo_id=args.halo_id,
         output_dir=args.output_dir,
+        component=args.component,
         suite=args.suite,
         grid_range=tuple(args.grid_range),
         grid_bins=args.grid_bins,

@@ -71,8 +71,8 @@ def read_all_fields_quality_metrics(filename):
 def compute_halos_fields_quality(halo_ids):
     # List of halo IDs or shapes to evaluate (replace with actual IDs as needed)
     # Output HDF5 file
-    filename = "fields_quality_metrics.h5"
-    output_file = os.path.join(DENSITY_FIELDS_PATHS, filename)
+    filename = "lmc_init_fields_quality_metrics.h5"
+    output_file = os.path.join(str(DENSITY_FIELDS_PATHS), filename)
 
     with h5py.File(output_file, "a") as h5f:
         for halo_id in halo_ids:
