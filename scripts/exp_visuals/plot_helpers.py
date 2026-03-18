@@ -224,3 +224,5 @@ def density_dashboard(kd_dens, dens_bfe, mise_logdens, mirse_dens, rvir=300, mea
     fig.tight_layout()
 
     return fig
+
+
