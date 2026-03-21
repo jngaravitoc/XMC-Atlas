@@ -29,9 +29,9 @@ import nba
 from mpi4py import MPI
 # BFE local libraries
 THIS_DIR = Path(__file__).resolve().parent
-sys.path.append(str(THIS_DIR / "exp_pipeline"))
-sys.path.append(str(THIS_DIR / "exp_fields"))
-sys.path.append(str(THIS_DIR / "exp_visuals"))
+sys.path.append("../exp_pipeline")
+sys.path.append("../exp_fields")
+sys.path.append("../exp_visuals")
 
 from ios_nbody_sims import load_particle_data
 from plot_helpers import plot_profiles
@@ -171,7 +171,7 @@ def main(
 
     
     elif component == "lmc":
-        config_name = f"lmc_init_basis_0108.yaml"
+        config_name = f"basis_init_lmc_0108.yaml"
 
     
     if world_rank == 0:
@@ -209,7 +209,7 @@ def main(
             print("computing coefficients in snap {}".format(i))
             snapshot = SNAPNAME + "{:03d}.hdf5".format(i)
             data = load_particle_data(SNAPSHOT_PATH, SNAPNAME, [comp], nsnap=i, suite=suite)
-            data[comp]["pos"] -= mw_center[i]
+            data[comp]["pos"] -= exp_center[i]
         else:
             data = None
         

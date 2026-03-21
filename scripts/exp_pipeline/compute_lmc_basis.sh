@@ -6,4 +6,4 @@ export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 
-parallel -j 30 "python build_spherical_basis.py {} lmc --ncoefs=1 --fit-type=initial --output_dir ::: "${VALUES[@]}"
+parallel -j 1 "python build_spherical_basis.py {} lmc --ncoefs=10 --fit-type=mean --output_dir" ::: "${VALUES[@]}"

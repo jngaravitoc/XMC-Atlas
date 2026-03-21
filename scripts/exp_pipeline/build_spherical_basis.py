@@ -28,12 +28,10 @@ import pyEXP
 import nba
 # BFE local libraries
 THIS_DIR = Path(__file__).resolve().parent
-sys.path.append(str(THIS_DIR / "exp_pipeline"))
-sys.path.append(str(THIS_DIR / "exp_fields"))
-sys.path.append(str(THIS_DIR / "exp_visuals"))
-sys.path.append("../")
+sys.path.append(str(THIS_DIR / "../exp_pipeline"))
+sys.path.append(str(THIS_DIR / "../exp_fields"))
+sys.path.append(str(THIS_DIR / "../exp_visuals"))
 
-from config import EXP_EXPANSIONS_PATH, SIMULATIONS_PATH, SIMS_PARAMS_PATH
 
 from ios_nbody_sims import load_particle_data
 from plot_helpers import plot_profiles
@@ -44,7 +42,8 @@ from data_products import write_density_profiles
 from sanity_checks import check_monotonic_profiles, check_monotonic_contiguous_snapshots
 from compute_bfe_helpers import load_sheng24_exp_center, get_snapshot_suffixes
 
-
+sys.path.append("../")
+from config import EXP_EXPANSIONS_PATH, SIMULATIONS_PATH, SIMS_PARAMS_PATH
 
 
 
@@ -93,18 +92,18 @@ def main(
 
     nsnap = 0  # ??
 
-    basis_path = os.path.join(output_dir, "basis") + "/"
-    coefs_path = os.path.join(output_dir, "coefficients") + "/"
+    basis_path = os.path.join(str(output_dir), "basis/") 
+    coefs_path = os.path.join(str(output_dir), "coefficients/") 
     os.makedirs(basis_path, exist_ok=True)
     os.makedirs(coefs_path, exist_ok=True)
     
-    figure_name = '{}_{:04d}_density_profile_evolution.png'.format(component, SIM_ID)
-    particle_profiles_filename = "{}_{:04d}_density_profiles_sheng24.h5".format(component, SIM_ID)
-    bfe_profiles_filename = "bfe_{}_{:04d}_density_profiles_sheng24.h5".format(component, SIM_ID)
-    modelname = 'modelname_{}_{:04d}.txt'.format(component, SIM_ID)
-    cachename = 'cache_{}_{:04d}.txt'.format(component, SIM_ID)
-    basis_filenames = "basis_{}_{:04d}.yaml".format(component, SIM_ID)
-    coefs_filename = '{}_{:04d}_coefficients.h5'.format(component, SIM_ID)
+    figure_name = '{}_mean_{:04d}_density_profile_evolution.png'.format(component, SIM_ID)
+    pnarticle_profiles_filename = "{}_mean_{:04d}_density_profiles_sheng24.h5".format(component, SIM_ID)
+    bfe_profiles_filename = "bfe_{}_mean_{:04d}_density_profiles_sheng24.h5".format(component, SIM_ID)
+    modelname = 'modelname_{}_mean_{:04d}.txt'.format(component, SIM_ID)
+    cachename = 'cache_{}_mean_{:04d}.txt'.format(component, SIM_ID)
+    basis_filenames = "basis_mean_{}_{:04d}.yaml".format(component, SIM_ID)
+    coefs_filename = '{}_mean_{:04d}_coefficients.h5'.format(component, SIM_ID)
 
     
     #--------------------------
@@ -152,7 +151,7 @@ def main(
 
 
     sim_params = load_sheng24_exp_center(
-        SIM_PARAMS_PATH, 
+        SIMS_PARAMS_PATH, 
         SIM_PARAMS_FILE,
         SIM_ID, return_vel=False)
 
@@ -229,7 +228,7 @@ def main(
                 rho_part_all[fail_ids], 
                 time=tsim[fail_ids], 
                 title=f"Non monotonic density profiles in Halo {SIM_ID}", 
-                filename="non_monotonic_density_profiles.png")
+                filename=basis_path+"non_monotonic_density_profiles.png")
         
         assert check_center == True
 
@@ -315,6 +314,8 @@ def main(
     runtag   = 'run1'
     time     = 0.0
 
+
+    """
     basis.enableCoefCovariance(pcavar=True, nsamples=100, covar=True)
     basis.writeCoefCovariance(compname, runtag, time)
 
@@ -339,6 +340,7 @@ def main(
             component,
             coefs_path+coefs_filename,
             unit_system=units)
+   
     
     #Read coefficients
     coefs = pyEXP.coefs.Coefs.factory(coefs_path+coefs_filename)
@@ -377,7 +379,7 @@ def main(
         # plot mise
     
     # plot here
-
+    """
 
     #------------------------------------------
     #--------------------------
