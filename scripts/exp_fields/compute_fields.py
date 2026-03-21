@@ -190,9 +190,11 @@ def compute_all_bfe_fields(halo_id, component, output_dir, grid_range=(-100, 100
     times : ndarray
     grid_arrays : list of ndarray
     """
-    fields_file = os.path.join(
-        output_dir, f"halo_{halo_id:04d}_BFE_fields.h5"
-    )
+    if component == "MWhalo":
+        fields_file = os.path.join(output_dir, f"halo_{halo_id:04d}_BFE_fields.h5")
+
+    elif component == "lmc":
+        fields_file = os.path.join(output_dir, f"lmc_init_{halo_id:04d}_BFE_fields.h5")
 
     # Compute all fields (needed in memory for dashboards later)
     dens_bfe_list, FP, times, points, grid_arrays = compute_BFE_fields_in_grid(

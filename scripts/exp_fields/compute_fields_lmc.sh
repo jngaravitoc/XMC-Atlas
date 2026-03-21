@@ -12,13 +12,13 @@
 #   --Ndens N                KDE neighbour count (default: 64)
 #set -e
 
-#ALUES=(100 160 223 290 348 419 480 481 88 884 \
+#VALUES=(100 160 223 290 348 419 480 481 88 884 \
 #      1585 1603 2240 2242 2259 2903 3468 3499 4159 4163 \
-#      4181 4797 4807 1500 3372 4110 770 1000 355)
+#     4181 4797 4807 1500 3372 4110 770 1000 355)
 #       4181 4797 4807 4822 1500 3372 4110 770 1000 355)
 VALUES=(108)
 # ---------- Configuration ----------
-MAX_JOBS=1
+MAX_JOBS=30
 OUTPUT_DIR="/n/nyx3/garavito/projects/XMC-Atlas/scripts/exp_expansions/density_fields/"
 SUITE="Sheng24"
 GRID_RANGE="-100 100"
