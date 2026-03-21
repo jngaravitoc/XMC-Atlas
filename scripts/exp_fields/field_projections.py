@@ -39,8 +39,27 @@ class FieldsQuality:
         """
         self.field_type = field_type
 
-        fields_BFE_filename = "lmc_init_{:04d}_BFE_fields.h5"
-        fields_KDE_filename = "lmc_init_{:04d}_kde_density.h5"
+        if component == 'MWhalo':
+            fields_BFE_filename = "halo_{:04d}_BFE_fields.h5"
+            fields_KDE_filename = "halo_{:04d}_kde_density.h5"
+            coefs_file = os.path.join(EXP_EXPANSIONS_PATH, 
+                                      "coefficients", 
+                                      "halo_{:04d}_coefficients_center.h5".format(halo_id))
+ 
+        elif component == 'lmc_init':
+            fields_BFE_filename = "lmc_init_{:04d}_BFE_fields.h5"
+            fields_KDE_filename = "lmc_init_{:04d}_kde_density.h5"
+            coefs_file = os.path.join(EXP_EXPANSIONS_PATH, 
+                                      "coefficients", 
+                                      "lmc_init_{:04d}_coefficients.h5".format(halo_id))
+
+        elif component == 'lmc_mean':
+            fields_BFE_filename = "lmc_mean_{:04d}_BFE_fields.h5"
+            fields_KDE_filename = "lmc_mean_{:04d}_kde_density.h5"
+            coefs_file = os.path.join(EXP_EXPANSIONS_PATH, 
+                                      "coefficients", 
+                                      "lmc_mean_{:04d}_coefficients.h5".format(halo_id))
+
 
         self.bfe_fields_file = os.path.join(DENSITY_FIELDS_PATHS, 
                                     fields_BFE_filename.format(halo_id))
@@ -48,13 +67,6 @@ class FieldsQuality:
         self.kde_fields_file = os.path.join(DENSITY_FIELDS_PATHS, 
                                     fields_KDE_filename.format(halo_id))
 
-        if component == "MWhalo":
-            coefs_file = os.path.join(EXP_EXPANSIONS_PATH, "coefficients", 
-                                        "holo_{:04d}_coefficients_center.h5".format(halo_id))
-        elif component == "lmc":
-            coefs_file = os.path.join(EXP_EXPANSIONS_PATH, "coefficients", 
-                                        "lmc_init_{:04d}_coefficients.h5".format(halo_id))
-        # Use the correct coefs_file for time keys
         self.time_keys = pyEXP.coefs.Coefs.factory(coefs_file).Times()
 
     def metrics_evolution(self):

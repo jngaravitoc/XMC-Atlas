@@ -6,6 +6,7 @@ VALUES=(100 160 223 290 348 419 480 481 88 884 \
 
 
 VALUES=(108)
+COMPONENT="lmc_init"
 #VALUES=(160 290 355 480 481 770 1000 3372 4163 4181 4822)
 
 # ---------- Configuration ----------
@@ -17,7 +18,7 @@ run_fields() {
     local halo_id=$1
 
     python evaluate_fields_quality.py \
-        "$halo_id"
+        "$halo_id" $COMPONENT
 }
 
 export -f run_fields
@@ -25,6 +26,6 @@ export -f run_fields
 # Run all values sequentially
 for halo_id in "${VALUES[@]}"; do
     echo "Running halo ${halo_id}..."
-    run_fields "$halo_id"
+    run_fields "$halo_id"  
 done
 

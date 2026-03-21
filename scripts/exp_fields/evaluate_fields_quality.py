@@ -68,10 +68,19 @@ def read_all_fields_quality_metrics(filename):
     return all_metrics
 
 
-def compute_halos_fields_quality(halo_ids):
+def compute_halos_fields_quality(halo_ids, component):
     # List of halo IDs or shapes to evaluate (replace with actual IDs as needed)
     # Output HDF5 file
-    filename = "lmc_init_fields_quality_metrics.h5"
+    if component == "MWhalo":
+        filename = "halo_fields_quality_metrics.h5"
+    elif component == "lmc_init":
+        filename = "lmc_init_fields_quality_metrics.h5"
+    elif component == "lmc_mean":
+        filename = "lmc_mean_fields_quality_metrics.h5"
+    elif component == "bulge":
+        filename = "bulge_fields_quality_metrics.h5"
+    
+    
     output_file = os.path.join(str(DENSITY_FIELDS_PATHS), filename)
 
     with h5py.File(output_file, "a") as h5f:
@@ -86,8 +95,10 @@ def compute_halos_fields_quality(halo_ids):
 
 if __name__ == "__main__":
     halo = int(sys.argv[1])
+    component = int(sys.argv[2])
+    
     sys.path.append("../")
     from field_projections import FieldsQuality
     from config import DENSITY_FIELDS_PATHS 
-    compute_halos_fields_quality(halo_ids=[halo])
+    compute_halos_fields_quality(halo_ids=[halo], component=component)
 
