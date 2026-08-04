@@ -98,14 +98,13 @@ def main(
     os.makedirs(coefs_path, exist_ok=True)
     
     figure_name = '{}_mean_{:04d}_density_profile_evolution.png'.format(component, SIM_ID)
-    pnarticle_profiles_filename = "{}_mean_{:04d}_density_profiles_sheng24.h5".format(component, SIM_ID)
+    particle_profiles_filename = "{}_mean_{:04d}_density_profiles_sheng24.h5".format(component, SIM_ID)
     bfe_profiles_filename = "bfe_{}_mean_{:04d}_density_profiles_sheng24.h5".format(component, SIM_ID)
     modelname = 'modelname_{}_mean_{:04d}.txt'.format(component, SIM_ID)
-    cachename = 'cache_{}_mean_{:04d}.txt'.format(component, SIM_ID)
-    basis_filenames = "basis_mean_{}_{:04d}.yaml".format(component, SIM_ID)
-    coefs_filename = '{}_mean_{:04d}_coefficients.h5'.format(component, SIM_ID)
-
-    
+    cachename = 'hr_cache_{}_mean_{:04d}.txt'.format(component, SIM_ID)
+    basis_filenames = "hr_basis_mean_{}_{:04d}.yaml".format(component, SIM_ID)
+    coefs_filename = 'hr_{}_mean_{:04d}_coefficients.h5'.format(component, SIM_ID)
+ 
     #--------------------------
     # profile fitting params
     #--------------------------
@@ -165,8 +164,10 @@ def main(
     elif component == "lmc":
         comp = "LMChalo"
         exp_center = lmc_center
-        lmax = int(6)
-        nmax = int(12)
+        #lmax = int(6)
+        #nmax = int(12)
+        lmax = int(12)
+        nmax = int(15)
         rmapping = 1.0
     elif component == "bulge":
         comp = "MWbulge"
@@ -295,6 +296,7 @@ def main(
         basis_params= basis_config,
         basis_filename = basis_path+basis_filenames)
 
+    """
     # move to outopath folder
     os.chdir(basis_path)
     basis = pyEXP.basis.Basis.factory(bconfig)
@@ -315,7 +317,7 @@ def main(
     time     = 0.0
 
 
-    """
+    
     basis.enableCoefCovariance(pcavar=True, nsamples=100, covar=True)
     basis.writeCoefCovariance(compname, runtag, time)
 
@@ -324,8 +326,8 @@ def main(
              ('length', 'kpc', 1.0),
              ('velocity', 'km/s', 1.0),
              ('G', 'mixed', 43007.1)]
-
-
+    """
+    """
     for i in range(0, NSNAPS, ncoefs):
         snapshot = SNAPNAME + "{:03d}.hdf5".format(i)
         data = load_particle_data(SNAPSHOT_PATH, SNAPNAME, [comp], nsnap=i, suite=suite)

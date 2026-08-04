@@ -98,7 +98,7 @@ def main(
     outpath = "/n/nyx3/garavito/projects/XMC-Atlas/scripts/exp_expansions/coefficients/"
     
     basis_path = "/n/nyx3/garavito/projects/XMC-Atlas/scripts/exp_expansions/basis/"
-    coefs_filename = '{}_init_{:04d}_coefficients.h5'.format(component, SIM_ID)
+    coefs_filename = "hr_{}_mean_{:04d}_coefficients.h5".format(component, SIM_ID)
     
     # --------------------------------------------------
     # Serial work on rank 0 only
@@ -171,7 +171,7 @@ def main(
 
     
     elif component == "lmc":
-        config_name = f"basis_init_lmc_0108.yaml"
+        config_name = f"hr_basis_mean_lmc_{SIM_ID:04d}.yaml"
 
     
     if world_rank == 0:
@@ -187,12 +187,12 @@ def main(
     from exp_coefficients import compute_exp_coefs_parallel
 
     # TODO check if we need this?
-    #compname = "MWhalo"
-    #runtag   = 'run1'
-    #time     = 0.0
+    compname = component
+    runtag   = 'run1'
+    time     = 0.0
 
-    #basis.enableCoefCovariance(pcavar=True, nsamples=100, covar=True)
-    #basis.writeCoefCovariance(compname, runtag, time)
+    basis.enableCoefCovariance(pcavar=True, nsamples=100, covar=True)
+    basis.writeCoefCovariance(compname, runtag, time)
 
     # --------------------------------------------------
     # Parallel coefficient computation
