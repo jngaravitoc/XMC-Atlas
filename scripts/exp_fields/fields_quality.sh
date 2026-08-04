@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 
-VALUES=(100 160 223 290 348 419 480 481 88 884 \
+#VALUES=(100 108 160 223 290 348 419 480 481 88 884 \
+#      1585 1603 2240 2242 2259 2903 3468 3499 4159 4163 \
+#       4181 4797 4807 4822 1500 3372 4110 770 1000 355)
+
+VALUES=(100 108 160 223 290 348 419 480 481 88 884 \
       1585 1603 2240 2242 2259 2903 3468 3499 4159 4163 \
-      4181 4797 4807 4822 1500 3372 4110 770 1000 355)
+      4797 4807 4822 1500 3372 4110 770 1000 355)
 
-
-VALUES=(108)
-COMPONENT="lmc_init"
+#VALUES=(108)
+COMPONENT="lmc_mean"
 #VALUES=(160 290 355 480 481 770 1000 3372 4163 4181 4822)
 
 # ---------- Configuration ----------
@@ -26,6 +29,6 @@ export -f run_fields
 # Run all values sequentially
 for halo_id in "${VALUES[@]}"; do
     echo "Running halo ${halo_id}..."
-    run_fields "$halo_id"  
+    run_fields "$halo_id"
 done
 

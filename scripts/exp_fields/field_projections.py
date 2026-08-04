@@ -58,7 +58,7 @@ class FieldsQuality:
             fields_KDE_filename = "lmc_mean_{:04d}_kde_density.h5"
             coefs_file = os.path.join(EXP_EXPANSIONS_PATH, 
                                       "coefficients", 
-                                      "lmc_mean_{:04d}_coefficients.h5".format(halo_id))
+                                      "lmc_meaan_{:04d}_coefficients.h5".format(halo_id))
 
 
         self.bfe_fields_file = os.path.join(DENSITY_FIELDS_PATHS, 
