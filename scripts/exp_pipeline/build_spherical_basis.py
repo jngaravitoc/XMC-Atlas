@@ -82,7 +82,7 @@ def main(
     suite = "Sheng24"
     if suite == "Sheng24":
         SNAPSHOT_PATH = os.path.join(SIMULATIONS_PATH, "Sheng/Model_{}".format(SIM_ID))
-        softening = 0.6 # TODO:implement this in plots!!
+        #softening = 0.6 # TODO:implement this in plots!!
         SNAPNAME = "snapshot"
         SIM_PARAMS_FILE = 'MW_LMC_orbits_iso.txt'
     
@@ -90,15 +90,18 @@ def main(
         softening = None
         raise ValueError(f"Suite {suite} not implemented")
 
-    nsnap = 0  # ??
+    #nsnap = 0  # ??
 
     basis_path = os.path.join(str(output_dir), "basis/") 
-    coefs_path = os.path.join(str(output_dir), "coefficients/") 
+    coefs_path = os.path.join(str(output_dir), "coefficients/")
     os.makedirs(basis_path, exist_ok=True)
     os.makedirs(coefs_path, exist_ok=True)
     
+    
     figure_name = '{}_mean_{:04d}_density_profile_evolution.png'.format(component, SIM_ID)
     particle_profiles_filename = "{}_mean_{:04d}_density_profiles_sheng24.h5".format(component, SIM_ID)
+
+    
     bfe_profiles_filename = "bfe_{}_mean_{:04d}_density_profiles_sheng24.h5".format(component, SIM_ID)
     modelname = 'modelname_{}_mean_{:04d}.txt'.format(component, SIM_ID)
     cachename = 'hr_cache_{}_mean_{:04d}.txt'.format(component, SIM_ID)
