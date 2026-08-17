@@ -85,7 +85,7 @@ def compute_halos_fields_quality(halo_ids, component):
 
     with h5py.File(output_file, "a") as h5f:
         for halo_id in halo_ids:
-            fq = FieldsQuality(halo_id)
+            fq = FieldsQuality(halo_id, component=component)
             metrics = fq.metrics_evolution()
             group = h5f.create_group(f"halo_{halo_id}")
             for key, arr in metrics.items():
@@ -95,7 +95,7 @@ def compute_halos_fields_quality(halo_ids, component):
 
 if __name__ == "__main__":
     halo = int(sys.argv[1])
-    component = int(sys.argv[2])
+    component = str(sys.argv[2])
     
     sys.path.append("../")
     from field_projections import FieldsQuality

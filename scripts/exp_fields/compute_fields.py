@@ -125,9 +125,12 @@ def compute_BFE_fields_in_grid(halo_id, component, grid_range=(-100, 100), grid_
     if component == 'MWhalo':
         config_name = os.path.join(basis_dir, f"basis_halo_{halo_id:04d}.yaml")
         coefs_file = os.path.join(coefs_dir, f"halo_{halo_id:04d}_coefficients_center.h5")
-    elif component == 'lmc':
+    elif component == 'lmc_init':
         config_name = os.path.join(basis_dir, f"basis_init_lmc_{halo_id:04d}.yaml")
         coefs_file = os.path.join(coefs_dir, f"lmc_init_{halo_id:04d}_coefficients.h5")
+    elif component == 'lmc_mean':
+        config_name = os.path.join(basis_dir, f"basis_mean_lmc_{halo_id:04d}.yaml")
+        coefs_file = os.path.join(coefs_dir, f"lmc_meaan_{halo_id:04d}_coefficients.h5")
     
     print(f"Loading basis from {config_name}...")
     basis = load_basis(config_name)
@@ -193,8 +196,10 @@ def compute_all_bfe_fields(halo_id, component, output_dir, grid_range=(-100, 100
     if component == "MWhalo":
         fields_file = os.path.join(output_dir, f"halo_{halo_id:04d}_BFE_fields.h5")
 
-    elif component == "lmc":
+    elif component == "lmc_init":
         fields_file = os.path.join(output_dir, f"lmc_init_{halo_id:04d}_BFE_fields.h5")
+    elif component == "lmc_mean":
+        fields_file = os.path.join(output_dir, f"lmc_mean_{halo_id:04d}_BFE_fields.h5")
 
     # Compute all fields (needed in memory for dashboards later)
     dens_bfe_list, FP, times, points, grid_arrays = compute_BFE_fields_in_grid(
@@ -285,13 +290,20 @@ def compute_all_kde_fields(halo_id, component, output_dir, sim_centers,
         output_filename = f"lmc_init_{halo_id:04d}_kde_densit"
         compname = f"halo"
 
-    elif component == "lmc":
+    elif component == "lmc_init":
         config_name = os.path.join(basis_dir, f"basis_init_lmc_{halo_id:04d}.yaml")
         # Load coefficients
         coefs_file = os.path.join(coefs_dir, f"lmc_init_{halo_id:04d}_coefficients.h5")
         per_snap_pattern = os.path.join(output_dir, f"lmc_init_{halo_id:04d}_kde_density_*.h5")
         merged_file = os.path.join(output_dir, f"lmc_init_{halo_id:04d}_kde_density.h5")
         compname = f"lmc_init"
+    elif component == "lmc_mean":
+        config_name = os.path.join(basis_dir, f"basis_mean_lmc_{halo_id:04d}.yaml")
+        # Load coefficients
+        coefs_file = os.path.join(coefs_dir, f"lmc_meaan_{halo_id:04d}_coefficients.h5")
+        per_snap_pattern = os.path.join(output_dir, f"lmc_mean_{halo_id:04d}_kde_density_*.h5")
+        merged_file = os.path.join(output_dir, f"lmc_mean_{halo_id:04d}_kde_density.h5")
+        compname = f"lmc_mean"
     
     print(f"Loading basis from {config_name}...")
     basis = load_basis(config_name)
@@ -330,7 +342,7 @@ def compute_all_kde_fields(halo_id, component, output_dir, sim_centers,
             )
             pos = p[component]["pos"] - sim_centers["mw_center"][i]
             mass = p[component]["mass"]
-        elif component == "lmc":
+        elif component in ("lmc_init","lmc_mean") : 
             p = load_particle_data(
                 f"/n/nyx3/garavito/XMC-Atlas-sims/Sheng/Model_{halo_id}",
                 snapname="snapshot",
