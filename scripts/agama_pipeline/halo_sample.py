@@ -27,8 +27,12 @@ import h5py
 import numpy as np
 
 THIS_DIR = Path(__file__).resolve().parent
+sys.path.append(str(THIS_DIR))  # agama_pipeline/ -- for build_agama_expansion
+sys.path.append(str(THIS_DIR.parent))  # scripts/ -- for config
 sys.path.append(str(THIS_DIR.parent / "exp_pipeline"))
 
+from config import AGAMA_ORBITS_PATH, SIMS_PARAMS_PATH
+from build_agama_expansion import resolve_suite_layout
 from ios_nbody_sims import load_particle_data
 from compute_bfe_helpers import load_sheng24_exp_center, get_snapshot_suffixes
 from sanity_checks import check_monotonic_contiguous_snapshots
@@ -407,6 +411,8 @@ def _write_datasets(grp: h5py.Group, datasets: dict, overwrite: bool) -> None:
 def write_orbit_trajectories(
     filename,
     sim_id: int,
+    simulation_suite: str,
+    simulation_model: str,
     times: np.ndarray,
     pid_sample: np.ndarray,
     pos: np.ndarray,
@@ -438,6 +444,13 @@ def write_orbit_trajectories(
     sim_id : int
         Simulation identifier; data is written under group
         ``suite_{sim_id:04d}``.
+    simulation_suite, simulation_model : str
+        config.py ``SIMULATION_SUITE_PATHS`` identity keys for this run
+        (e.g. ``"sheng"``, ``"sheng_iso"``), stored as group attributes --
+        same mechanism as r_min/r_max/seed below, and mirrors the
+        suite/model/sim_id identity that ``build_agama_expansion.py``
+        encodes in its output directory name
+        (``agama_expansions/suite_<sim_id>/``).
     times : ndarray, shape (T,)
     pid_sample : ndarray, shape (N,)
     pos, vel : ndarray, shape (N, T, 3)
@@ -467,6 +480,9 @@ def write_orbit_trajectories(
         grp.attrs["r_min"] = r_min
         grp.attrs["r_max"] = r_max
         grp.attrs["n_sample"] = len(pid_sample)
+        grp.attrs["sim_id"] = sim_id
+        grp.attrs["simulation_suite"] = simulation_suite
+        grp.attrs["simulation_model"] = simulation_model
         if seed is not None:
             grp.attrs["seed"] = seed
 
@@ -483,6 +499,8 @@ def _pad_ragged(arrays: Sequence[np.ndarray]) -> np.ndarray:
 def write_orbit_parameters(
     filename,
     sim_id: int,
+    simulation_suite: str,
+    simulation_model: str,
     times: np.ndarray,
     pid_sample: np.ndarray,
     energy: np.ndarray,
@@ -508,6 +526,13 @@ def write_orbit_parameters(
     ----------
     filename : str or Path
     sim_id : int
+    simulation_suite, simulation_model : str
+        config.py ``SIMULATION_SUITE_PATHS`` identity keys for this run
+        (e.g. ``"sheng"``, ``"sheng_iso"``), stored as group attributes --
+        same mechanism as r_min/r_max/seed below, and mirrors the
+        suite/model/sim_id identity that ``build_agama_expansion.py``
+        encodes in its output directory name
+        (``agama_expansions/suite_<sim_id>/``).
     times : ndarray, shape (T,)
     pid_sample : ndarray, shape (N,)
     energy : ndarray, shape (N, T)
@@ -551,6 +576,9 @@ def write_orbit_parameters(
         grp.attrs["r_min"] = r_min
         grp.attrs["r_max"] = r_max
         grp.attrs["n_sample"] = len(pid_sample)
+        grp.attrs["sim_id"] = sim_id
+        grp.attrs["simulation_suite"] = simulation_suite
+        grp.attrs["simulation_model"] = simulation_model
         if seed is not None:
             grp.attrs["seed"] = seed
 
@@ -563,6 +591,8 @@ def run_halo_sample(
     centers_file: str,
     orbits_output,
     params_output,
+    simulation_suite: str,
+    simulation_model: str,
     suite: str = "Sheng24",
     n_sample: int = 50,
     r_min: float = 20.0,
@@ -588,6 +618,12 @@ def run_halo_sample(
         Output HDF5 path for orbit trajectories (agama.orbit format).
     params_output : str or Path
         Output HDF5 path for derived orbital parameters.
+    simulation_suite, simulation_model : str
+        Identity metadata (the config.py SIMULATION_SUITE_PATHS keys, e.g.
+        "sheng"/"sheng_iso") recorded as HDF5 group attributes for
+        provenance, alongside sim_id -- does not affect path resolution or
+        particle loading (see `suite` for the load_sim_context-facing suite
+        label).
     suite : str, optional
     n_sample : int, optional
     r_min, r_max : float, optional
@@ -621,11 +657,13 @@ def run_halo_sample(
     params = compute_orbit_parameters(ctx["times"], pos, vel, pot)
 
     write_orbit_trajectories(
-        orbits_output, sim_id, ctx["times"], pid_sample, pos, vel, pot,
+        orbits_output, sim_id, simulation_suite, simulation_model,
+        ctx["times"], pid_sample, pos, vel, pot,
         r_min=r_min, r_max=r_max, seed=seed,
     )
     write_orbit_parameters(
-        params_output, sim_id, ctx["times"], pid_sample,
+        params_output, sim_id, simulation_suite, simulation_model,
+        ctx["times"], pid_sample,
         params["energy"], params["ang_mom"], params["peri_apo"],
         r_min=r_min, r_max=r_max, seed=seed,
     )
@@ -636,15 +674,28 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         description="Sample DM halo particles, extract their orbits, and derive "
         "orbital parameters for one XMC-Atlas simulation."
     )
+    parser.add_argument(
+        "simulation_suite", type=str, choices=["sheng"],
+        help="Simulation suite key from config.py. Only 'sheng' is currently "
+        "supported -- load_sim_context() rejects any other suite (GC21 support "
+        "is out of scope for this script).",
+    )
+    parser.add_argument(
+        "simulation_model", type=str,
+        help="Model key from config.py for the selected suite (e.g. sheng_iso, "
+        "sheng_radial).",
+    )
     parser.add_argument("sim_id", type=int, help="Simulation ID")
-    parser.add_argument("--suite", type=str, default="Sheng24", choices=["Sheng24"])
     parser.add_argument(
         "--snapshot-dir", type=str, default=None,
         help="Directory containing the simulation's snapshots "
-        "(default: suites/<suite>/data/Model_<sim_id>)",
+        "(default: derived from config.SIMULATION_SUITE_PATHS via resolve_suite_layout).",
     )
-    parser.add_argument("--snapname", type=str, default="snapshot")
-    parser.add_argument("--centers-path", type=str, default="suites/Sheng24/orbits")
+    parser.add_argument(
+        "--snapname", type=str, default=None,
+        help="Snapshot filename prefix (default: derived via resolve_suite_layout).",
+    )
+    parser.add_argument("--centers-path", type=str, default=str(SIMS_PARAMS_PATH))
     parser.add_argument("--centers-file", type=str, default="MW_LMC_orbits_iso.txt")
     parser.add_argument("--n-sample", type=int, default=50)
     parser.add_argument("--r-min", type=float, default=20.0)
@@ -652,30 +703,45 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument(
         "--orbits-output", type=str, default=None,
-        help="Output HDF5 path for orbit trajectories (default: halo_sample_orbits.h5)",
+        help="Output HDF5 path for orbit trajectories "
+        "(default: config.AGAMA_ORBITS_PATH/halo_sample_orbits.h5).",
     )
     parser.add_argument(
         "--params-output", type=str, default=None,
-        help="Output HDF5 path for orbital parameters (default: halo_sample_params.h5)",
+        help="Output HDF5 path for orbital parameters "
+        "(default: config.AGAMA_ORBITS_PATH/halo_sample_params.h5).",
     )
     return parser.parse_args(argv)
 
 
 def main(argv: Optional[Sequence[str]] = None) -> None:
     args = parse_args(argv)
-    snapshot_dir = args.snapshot_dir or f"suites/{args.suite}/data/Model_{args.sim_id}"
-    orbits_output = args.orbits_output or "halo_sample_orbits.h5"
-    params_output = args.params_output or "halo_sample_params.h5"
+
+    layout = resolve_suite_layout(args.simulation_suite, args.simulation_model, args.sim_id)
+    snapshot_dir = args.snapshot_dir or str(layout["snapshot_path"])
+    snapname = args.snapname or layout["snapname"]
+    suite_label = layout["suite_label"]  # "Sheng24" -- what load_sim_context expects
+
+    orbits_output = (
+        Path(args.orbits_output) if args.orbits_output
+        else AGAMA_ORBITS_PATH / "halo_sample_orbits.h5"
+    )
+    params_output = (
+        Path(args.params_output) if args.params_output
+        else AGAMA_ORBITS_PATH / "halo_sample_params.h5"
+    )
 
     run_halo_sample(
         args.sim_id,
         snapshot_dir=snapshot_dir,
-        snapname=args.snapname,
+        snapname=snapname,
         centers_path=args.centers_path,
         centers_file=args.centers_file,
         orbits_output=orbits_output,
         params_output=params_output,
-        suite=args.suite,
+        simulation_suite=args.simulation_suite,
+        simulation_model=args.simulation_model,
+        suite=suite_label,
         n_sample=args.n_sample,
         r_min=args.r_min,
         r_max=args.r_max,

@@ -26,17 +26,17 @@ from typing import Sequence
 import os, uuid, h5py, re, tempfile
 import numpy as np
 from pathlib import Path
-from typing import Optional, Sequence, Union, Iterable, List, Callable
+from typing import Any, Optional, Sequence, Union, Iterable, List, Callable
 import agama
 agama.setUnits(mass=1, length=1, velocity=1) # Msol, kpc, km/s. Time is in kpc/(kms/s)
 
 # ---------------------------------------------------------------------------
 # Component-to-expansion routing
 # ---------------------------------------------------------------------------
-_MW_SPHERICAL_KEYS = {"MWhalo", "MWhaloiso", "MWbulge"}
+_MW_SPHERICAL_KEYS = {"MWhalo", "MWhaloiso"}
 _MW_DISK_KEYS = {"MWdisk"}
 _LMC_KEYS = {"LMChalo"}
-
+_MW_BULGE_KEYS = {"MWbulge"}
 __all__ = [
     "fitAgamaBFE",
     "write_coef_to_h5",
@@ -179,13 +179,14 @@ def fitAgamaBFE(
     lmax: int | Sequence[int] = 6,
     mmax: int | Sequence[int] = 6,
     sym: str | Sequence[str] = "n",
-    rmin_exp: float = 0.0,
+    rmin_exp: float = 0.5,
     rmax_exp: float = 500.0,
+    rmax_bulge: float = 50.0,
     zmin_exp: float = 0.0,
     zmax_exp: float = 20.0,
     rmax_lmc: float = 500.0,
     gridsizeR: int = 25,
-    gridsizez: int = 49,
+    gridsizez: int = 25,
     OUTPUT_PATH: str = "potential/",
     verbose: bool = False,
 ) -> None:
@@ -204,8 +205,10 @@ def fitAgamaBFE(
 
     Component routing
     -----------------
-    * ``MWhalo``, ``MWhaloiso``, ``MWbulge``
+    * ``MWhalo``, ``MWhaloiso``
         → MW Multipole (spherical harmonic) expansion.
+    * ``MWbulge``
+        → MW bulge Multipople (spherical harmonic) expansion.
     * ``MWdisk``
         → MW CylSpline (azimuthal) expansion.
     * ``LMChalo``
@@ -248,20 +251,22 @@ def fitAgamaBFE(
         Default is ``'n'``.
     rmin_exp : float, optional
         Inner radius for the expansion grid in kpc.  ``0`` lets Agama
-        auto-detect from the particle distribution.  Default is 0.
+        auto-detect from the particle distribution.  Default is 0.5.
     rmax_exp : float, optional
         Outer radius for the MW expansion grid in kpc.  Default is 500.
+    rmax_bulge : float, optional
+        Outer radius for the MW bulge expansion grid in kpc.  Default is 50.
     zmin_exp : float, optional
         innermost grid point for the CylSpline grid in kpc.  Default is 0.
     zmax_exp : float, optional
         Maximum outermost grid for the CylSpline grid in kpc.  Default
         is 20. That means a grid between -20 and 20 kpc, so the total height is 40 kpc.
     rmax_lmc : float, optional
-        Outer radius for the LMC expansion grid in kpc.  Default is 100.
+        Outer radius for the LMC expansion grid in kpc.  Default is 500.
     gridsizeR : int, optional
         Radial grid points.  Default is 25.
     gridsizez : int, optional
-        Vertical grid points.  Default is 49.
+        Vertical grid points.  Default is 25.
     OUTPUT_PATH : str, optional
         Directory for output coefficient files.  Created if it does not
         exist.  Default is ``'potential/'``.
@@ -346,8 +351,13 @@ def fitAgamaBFE(
 
     # --- MW spherical (halo + bulge) ---
     if verbose:
-        print("\n  [MW spherical components]")
+        print("\n  [MW halo components]")
     mw_sph = _extract_particles(part, _MW_SPHERICAL_KEYS, mw_pos, verbose=verbose)
+
+    if verbose:
+        print("\n  [MW bulge components]")
+    mw_bulge = _extract_particles(part, _MW_BULGE_KEYS, mw_pos, verbose=verbose)
+
 
     # --- MW disk (azimuthal) ---
     if verbose:
@@ -364,10 +374,10 @@ def fitAgamaBFE(
             print("    No LMC particles found despite lmc_center being provided.")
 
     # Guard: at least something to fit
-    if mw_sph is None and mw_disk is None:
+    if mw_sph is None and mw_disk is None and mw_bulge is None:
         raise RuntimeError(
             "No fittable MW components found in `part`. Expected at least one "
-            f"of: {_MW_SPHERICAL_KEYS | _MW_DISK_KEYS}"
+            f"of: {_MW_SPHERICAL_KEYS | _MW_DISK_KEYS | _MW_BULGE_KEYS}"
         )
 
     disk_fit = mw_disk is not None
@@ -375,10 +385,12 @@ def fitAgamaBFE(
 
     if verbose:
         n_mw_s = mw_sph[1].shape[0] if mw_sph else 0
+        n_mw_bulge = mw_bulge[1].shape[0] if mw_bulge else 0
         n_mw_d = mw_disk[1].shape[0] if mw_disk else 0
         n_lmc = lmc_sph[1].shape[0] if lmc_sph else 0
         print(f"\n  Particle counts  →  MW sph: {n_mw_s:,}  |  "
-              f"MW disk: {n_mw_d:,}  |  LMC: {n_lmc:,}")
+              f"MW bulge: {n_mw_bulge:,}  |  MW disk: {n_mw_d:,}  |  LMC: {n_lmc:,}")
+        print(f"  MW bulge expansion →  {'enabled' if mw_bulge is not None else 'disabled'}")
         print(f"  Disk expansion   →  {'enabled' if disk_fit else 'disabled'}")
         print(f"  LMC expansion    →  {'enabled' if lmc_fit else 'disabled'}")
 
@@ -423,6 +435,30 @@ def fitAgamaBFE(
                     if verbose:
                         print(f"    Saved → {outpath_mul}")
 
+                if mw_bulge is not None:
+                    pos_bulge, m_bulge = mw_bulge
+                    if verbose:
+                        print(f"\n  → MW bulge Multipole  [{tag}]")
+
+                    p_MW_bulge = agama.Potential(
+                        type="Multipole",
+                        particles=(pos_bulge, m_bulge),
+                        lmax=l_order,
+                        symmetry=sym_label,
+                        rmin=rmin,
+                        rmax=rmax_bulge,
+                        gridSizeR=gridsizeR,
+                    )
+
+                    fname_bulge = (
+                        f"{nsnap_str}.MW.{sym_label}_{l_order}.coef_bulge"
+                    )
+                    outpath_bulge = os.path.join(OUTPUT_PATH, fname_bulge)
+                    p_MW_bulge.export(outpath_bulge)
+
+                    if verbose:
+                        print(f"    Saved → {outpath_bulge}")
+                
                 # ---------- MW CylSpline (azimuthal / disk) ----------
                 if disk_fit:
                     pos_azi, m_azi = mw_disk
@@ -504,7 +540,7 @@ def write_coef_to_h5(
     group_name: str = "snap_100",
     dataset_name: str = "coefs",
     overwrite: bool = False,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: Optional[dict] = None,
 ) -> None:
     """
     Store an Agama coefficient text string in an HDF5 archive.
@@ -552,7 +588,10 @@ def write_coef_to_h5(
             if overwrite:
                 del grp[dataset_name]
             else:
-                raise RuntimeError(f"{group_name}/{dataset_name} exists")
+                raise RuntimeError(
+                    f"{group_name}/{dataset_name} already exists; "
+                    "pass overwrite=True to replace."
+                )
 
         grp.create_dataset(dataset_name, data=coef_string, dtype=dt)
 
@@ -568,6 +607,7 @@ def write_snapshot_coefs_to_h5(
     dataset_name: str = "coefs",
     overwrite: bool = True,
     encoding: str = "utf-8",
+    times: Optional[Sequence[float]] = None,
 ) -> None:
     """
     Batch-write a collection of Agama coefficient files into one or more HDF5
@@ -611,11 +651,17 @@ def write_snapshot_coefs_to_h5(
     encoding : str, optional
         File encoding used when reading the source ``.coef_*`` files, by
         default ``"utf-8"``.
+    times : sequence of float, optional
+        Simulation times aligned with *snapshot_ids*.  When provided, stored
+        as a root-level ``"times"`` dataset in each output HDF5 file so that
+        an evolving potential can be loaded without passing *times*
+        explicitly.
 
     Raises
     ------
     ValueError
-        If *coef_file_patterns* and *h5_output_paths* have different lengths.
+        If *coef_file_patterns* and *h5_output_paths* have different lengths,
+        or if *times* is provided but its length differs from *snapshot_ids*.
     FileNotFoundError
         If a formatted coefficient file path does not exist on disk.
 
@@ -626,9 +672,9 @@ def write_snapshot_coefs_to_h5(
     >>> write_snapshot_coefs_to_h5(
     ...     snapshot_ids=range(0, 101),
     ...     coef_file_patterns=[
-    ...         "potential/{snap:03d}.MW.none_8.coef_mult",
-    ...         "potential/{snap:03d}.MW.none_8.coef_cylsp",
-    ...         "potential/{snap:03d}.LMC.none_8.coef_mult",
+    ...         "potential/{snap:03d}.MW.none_8.coef_mul.h5",
+    ...         "potential/{snap:03d}.MW.none_8.coef_cylsp.h5",
+    ...         "potential/{snap:03d}.LMC.none_8.coef_mult.h5",
     ...     ],
     ...     h5_output_paths=[
     ...         "data/MW.none_8.coef_mult.h5",
@@ -637,13 +683,18 @@ def write_snapshot_coefs_to_h5(
     ...     ],
     ... )
     """
+    snap_list = list(snapshot_ids)
     if len(coef_file_patterns) != len(h5_output_paths):
         raise ValueError(
             f"coef_file_patterns (len={len(coef_file_patterns)}) and "
             f"h5_output_paths (len={len(h5_output_paths)}) must have the same length."
         )
+    if times is not None and len(times) != len(snap_list):
+        raise ValueError(
+            f"times (len={len(times)}) must match snapshot_ids (len={len(snap_list)})."
+        )
 
-    for snap_id in snapshot_ids:
+    for snap_id in snap_list:
         group_name = group_fmt.format(snap=snap_id)
         for file_pattern, out_path in zip(coef_file_patterns, h5_output_paths):
             file_path = Path(file_pattern.format(snap=snap_id))
@@ -659,6 +710,16 @@ def write_snapshot_coefs_to_h5(
                 dataset_name=dataset_name,
                 overwrite=overwrite,
             )
+
+    # Embed times in every output archive so an evolving potential can be
+    # loaded without supplying times explicitly.
+    if times is not None:
+        times_arr = np.asarray(times, dtype=float)
+        for out_path in h5_output_paths:
+            with h5py.File(out_path, "a") as f:
+                if "times" in f:
+                    del f["times"]
+                f.create_dataset("times", data=times_arr)
 
 # ============================================================
 # HDF5 READ
@@ -703,20 +764,7 @@ def load_coef_from_h5(
 # ============================================================
 
 def _get_fast_tmp_dir() -> str:
-    """
-    Return the best available temporary directory, preferring RAM-backed
-    storage when possible.
-
-    Preference order:
-
-    1. ``/dev/shm``  – RAM-backed tmpfs on most Linux systems (including WSL2).
-    2. System temp dir (``tempfile.gettempdir()``) – works everywhere and
-       already points to fast storage on many platforms (``/tmp`` is often
-       tmpfs on modern Linux; macOS and Windows use SSD-backed dirs).
-
-    The directory is only selected if it exists **and** is writable, so
-    restricted HPC nodes or permission-locked mounts are skipped silently.
-    """
+    """Return fastest writable temp dir: /dev/shm (RAM-backed on Linux) or system tmp."""
     shm = Path("/dev/shm")
     if shm.is_dir() and os.access(shm, os.W_OK):
         return str(shm)
@@ -834,27 +882,9 @@ def load_agama_potential_from_h5(
 # ============================================================
 
 def _extract_int_from_group(name: str) -> int:
-    """
-    Extract the first integer embedded in a group name string.
-
-    Used as a sort key so that ``snap_000``, ``snap_001``, … are ordered
-    numerically rather than lexicographically.
-
-    Parameters
-    ----------
-    name : str
-        HDF5 group name, e.g. ``"snap_042"`` or ``"snapshot_100"``.
-
-    Returns
-    -------
-    int
-        The first integer found in *name*, or a deterministic hash-based
-        fallback if no integer is present.
-    """
+    """Extract first integer from a group name for numeric sorting (e.g. 'snap_042' → 42)."""
     m = re.search(r"(\d+)", name)
-    if m:
-        return int(m.group(1))
-    return abs(hash(name)) % (10 ** 9)
+    return int(m.group(1)) if m else abs(hash(name)) % (10 ** 9)
 
 def _materialize_to_shm_and_keep(coef_string: str) -> str:
     """

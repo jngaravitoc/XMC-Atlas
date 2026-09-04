@@ -7,7 +7,7 @@ agama.setUnits(mass=1e10, length=1, velocity=1)  # Msol, kpc, km/s
 
 def createAgamaPotential(potential_file, xyz):
 	pot_agama = agama.Potential(potential_file)
-	print(pot_agama.force(xyz)
+	print(pot_agama.force(xyz))
 
 
 if __name__ == "__main__":
