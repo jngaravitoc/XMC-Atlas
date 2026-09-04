@@ -3,7 +3,14 @@ Functions adapted from Hayden Foote UofA (2025)
 """
 import numpy as np
 from scipy.spatial import KDTree
-import pyEXP
+
+# pyEXP is imported lazily, inside only the functions that actually need it
+# (bfe_coef_profiles, halo_radial_bfe_fidelity, halo_bfe_fidelity) -- EXP is
+# still mid-install on this cluster and not yet usable (see CLAUDE.md), so a
+# module-level import here would make every function in this file
+# unimportable, including the plain array-comparison ones (mise, mirse,
+# goodness_of_fit, relative_error, projected_map, etc.) that have nothing to
+# do with pyEXP.
 
 # helper functions for error estimation
 # plot MIRSE with Gadget with respect to a particular choice of expansion truncation
@@ -74,6 +81,8 @@ def spherical_grid(gridspecs, rgrid):
     return np.column_stack((x.ravel(), y.ravel(), z.ravel()))
 
 def bfe_coef_profiles(basis, coefs, edges, times=0.0, field='dens'):
+    import pyEXP
+
     field_spherical_exp = np.zeros(len(edges))
     for r in range(len(edges)):
         xyz_sph = spherical_grid(gridspecs= {'theta_bins': 10, 'phi_bins' : 20}, rgrid = edges[r])
@@ -239,8 +248,9 @@ def halo_radial_bfe_fidelity(particles_pos, particles_masses, basis, coefs, edge
 
     Returns:
     -------
-    """ 
-    
+    """
+    import pyEXP
+
     radial_bins = len(edges)
     xyz_sph_3d = np.zeros((radial_bins, theta_bins, phi_bins))
     for r in range(len(edges)):
@@ -332,6 +342,8 @@ def halo_bfe_fidelity(
     - relative_error
     - projected_map
     """
+
+    import pyEXP
 
     if gof_metric is None:
         gof_metric = ['mise', 'mirse', 'gof', 'relative_error']

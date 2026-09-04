@@ -8,7 +8,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.patches import Circle
-from EXPtools.visuals import use_exptools_style
+#from EXPtools.visuals import use_exptools_style
 
 def plot_profiles(radius, density, time, title='Profile Evolution',
                   r_fit=None, rho_fit=None, fit_label='Fit', filename=None):

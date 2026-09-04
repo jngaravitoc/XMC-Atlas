@@ -1,10 +1,16 @@
 import os
 import csv
 import logging
+import sys
 import yaml
 import numpy as np
-import pyEXP
 from pathlib import Path
+
+SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.append(str(SCRIPTS_DIR))
+
+from config import PROJECT_DIR
 
 def get_snapshot_suffixes(folder, prefix="snapshot_", min_len=3):
     """
@@ -126,10 +132,9 @@ def load_GC21_exp_center(origin_dir, simulation_filename, suite, component, retu
         return density_center
 
 def load_sheng24_exp_center(origin_dir, centers_filename, sim_id, return_vel=False):
-    # Resolve relative paths against the project root (two levels up from this file)
+    # Resolve relative paths against PROJECT_DIR from scripts/config.py.
     if not os.path.isabs(origin_dir):
-        _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        origin_dir = os.path.join(_PROJECT_ROOT, origin_dir)
+        origin_dir = os.path.join(str(PROJECT_DIR), origin_dir)
     sim_params_file = os.path.join(origin_dir, centers_filename)
     sim_params = np.loadtxt(sim_params_file, skiprows=1)
     id_sim = sim_params[:,0].astype(int)
@@ -213,6 +218,7 @@ def load_exp_basis(sim_files, basis_path, component, suite, variance=False):
     FileNotFoundError
         If the specified YAML file does not exist.
     """
+    import pyEXP
 
     basis_name = read_simulations_files(sim_files, suite, component, quantity="basis")
     basis_file = os.path.join(basis_path, basis_name) 
